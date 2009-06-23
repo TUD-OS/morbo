@@ -1,0 +1,8 @@
+tftp
+*~
+*.o
+.scons*
+.sconf_temp
+config.log
+*.a
+morbo
