@@ -14,15 +14,20 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdbool.h>
+#include <stdarg.h>
+
 #include "asm.h"
 
-
-#ifndef NDEBUG
-#define assert(X) {if (!(X)) { out_string("\nAssertion failed: '" #X  "'\n\n"); __exit(0xbadbbbad);}}
-#else
-#define assert(X)
-#endif
+#define assert(X, msg, args...)						\
+  do {									\
+    if (!(X)) {								\
+      printf ("%[Assertion \"%s\" failed at %s:%d%]\n" msg, #X,		\
+	      __FILE__, __LINE__, ## args);				\
+      __exit(0xbad);							\
+    }									\
+  } while (0)
 
 /**
  * we want inlined stringops
@@ -31,28 +36,9 @@
 #define memset(x,y,z) __builtin_memset(x,y,z)
 #define strlen(x)     __builtin_strlen(x)
 
-#ifndef NDEBUG
-
-/**
- * A fatal error happens if value is true.
- */
-#define ERROR(result, value, msg)				\
-  {								\
-    if (value)							\
-      {								\
-	out_string(msg);					\
-	__exit(result);						\
-      }								\
-  }
-
-#else
-
-#define ERROR(result, value, msg)				\
-  {								\
-    if (value)							\
-      __exit(result);						\
-  }
-#endif
+char *strtok(char *s, const char *delim);
+int strcmp(const char *s1, const char *s2);
+char *strncpy(char * __restrict dst, const char * __restrict src, size_t n);
 
 /**
  * Returns result and prints the msg, if value is true.
@@ -96,6 +82,11 @@ extern const char message_label[];
 void out_description(const char *prefix, unsigned int value);
 void out_info(const char *msg);
 
+/* Poor man's isspace */
+#define isspace(c) ((c) == ' ')
+
+void vprintf(const char *fmt, va_list ap);
+void printf(const char *fmt, ...);
 
 /**
  * Helper functions.
@@ -103,3 +94,5 @@ void out_info(const char *msg);
 void wait(int ms);
 void __exit(unsigned status) __attribute__((noreturn));
 void reboot(void) __attribute__((noreturn));
+
+/* EOF */

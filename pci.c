@@ -16,13 +16,11 @@
 #include <util.h>
 #include <pci.h>
 
-/* #define PCI_VERBOSE */
-
 /**
  * Read a byte from the pci config space.
  */
-uint8_t
-pci_read_byte(uint32_t addr)
+unsigned char
+pci_read_byte(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
   return inb(PCI_DATA_PORT + (addr & 3));
@@ -31,8 +29,8 @@ pci_read_byte(uint32_t addr)
 /**
  * Read a word from the pci config space.
  */
-uint16_t
-pci_read_word(uint32_t addr)
+unsigned short
+pci_read_word(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
   return inw(PCI_DATA_PORT + (addr & 2));
@@ -42,8 +40,8 @@ pci_read_word(uint32_t addr)
 /**
  * Read a long from the pci config space.
  */
-uint32_t
-pci_read_long(uint32_t addr)
+unsigned
+pci_read_long(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
   return inl(PCI_DATA_PORT);
@@ -64,12 +62,31 @@ pci_write_word(unsigned addr, unsigned short value)
 /**
  * Write a long to the pci config space.
  */
-static
 void
 pci_write_long(unsigned addr, unsigned value)
 {
   outl(PCI_ADDR_PORT, addr);
   outl(PCI_DATA_PORT, value);
+}
+
+
+/**
+ * Read a word from the pci config space.
+ */
+static inline
+unsigned short
+pci_read_word_aligned(unsigned addr)
+{
+  outl(PCI_ADDR_PORT, addr);
+  return inw(PCI_DATA_PORT);
+}
+
+static inline
+void
+pci_write_word_aligned(unsigned addr, unsigned short value)
+{
+  outl(PCI_ADDR_PORT, addr);
+  outw(PCI_DATA_PORT, value);
 }
 
 
@@ -82,88 +99,162 @@ pci_write_long(unsigned addr, unsigned value)
 uint32_t
 pci_find_device_by_class(uint8_t class, uint8_t subclass)
 {
-  uint16_t complete_class = class << 8 | subclass;
+  uint16_t full_class = class << 8 | subclass;
 
   uint32_t res = 0;
-  for (unsigned i=0; i<1<<16; i++) {
-    uint32_t addr = 0x80000000 | i<<8;
-    uint16_t dev_class = (pci_read_long(addr + PCI_CFG_REVID) >> 16);
+  for (unsigned i=0; i<1<<13; i++) {
+    uint8_t maxfunc = 0;
     
-    if (dev_class != 0xFFFF) {
-#ifdef PCI_VERBOSE
-      out_description("found device. class", dev_class);
-#endif
-      if (complete_class == dev_class)
-        res = addr;
+    for (unsigned func = 0; func <= maxfunc; func++) {
+      uint32_t addr = 0x80000000 | i<<11 | func<<8;
+
+      if (!maxfunc && pci_read_byte(addr+14) & 0x80)
+	maxfunc=7;
+      if (full_class == (pci_read_long(addr+0x8) >> 16))
+	res = addr;
     }
   }
+
   return res;
 }
 
-static inline uint32_t
-pci_config_address(uint8_t bus, uint8_t device, uint8_t function)
-{
-  /* Type 1 config transaction */
-  return 0x80000000 | (bus << 16) | (device << 11) | (function << 8);
-}
-
-static inline bool
-pci_is_bridge(uint32_t addr)
-{
-  return ((pci_read_long(addr | PCI_CFG_REVID) >> 24) == PCI_CLASS_BRIDGE_DEV);
-}
-
-static inline bool
-pci_is_ieee1934(uint32_t addr)
-{
-  return ((pci_read_long(addr | PCI_CFG_REVID) >> 16) == 
-          (PCI_CLASS_SERIAL_BUS_CTRL << 8 | PCI_SUBCLASS_IEEE_1394));
-}
 
 /**
- * Traverses the PCI bus across bridges and prints info.
+ * Return an pci config space address of a device with the given
+ * device/vendor id or 0 on error.
  */
-void
-pci_bus_info(uint8_t bus)
+uint32_t
+pci_find_device_by_id(uint16_t id)
 {
-  out_description("Inspecting PCI bus ", bus);
-  for (unsigned device = 0; device < (1<<5); device++) {
-    uint32_t addr = pci_config_address(bus, device, 0);
+  uint32_t res = 0;
 
-    if (pci_is_ieee1934(addr)) {
-      out_info("GOTCHA!");
-    }
+  for (unsigned i=0; i<1<<13; i++) {
+    uint8_t maxfunc = 0;
 
-    if (pci_is_bridge(addr)) {
-      uint32_t dev_class_raw = pci_read_long(addr | PCI_CFG_REVID) >> 8;
-      uint8_t subclass = (dev_class_raw >> 8) & 0xFF;
-      const char *desc;
+    for (unsigned func = 0; func <= maxfunc; func++) {
+      uint32_t addr = 0x80000000 | i<<11 | func<<8;
 
-      switch (subclass) {
-      case PCI_SUBCLASS_HOST_BRIDGE: desc = "Host/PCI bridge @"; break;
-      case PCI_SUBCLASS_ISA_BRIDGE: desc = "PCI/ISA bridge @"; break;
-      case PCI_SUBCLASS_PCI_BRIDGE: desc = "PCI/PCI bridge @"; break;
-      case PCI_SUBCLASS_PCMCIA_BRIDGE: desc = "PCI/PCMCIA bridge @"; break;
-      case PCI_SUBCLASS_CARDBUS_BRIDGE: desc = "PCI/Cardbus bridge @"; break;
-      default: desc = "Unknown bridge @"; break;
-      }
-
-      out_description(desc, addr);
-
-      if ((subclass == PCI_SUBCLASS_PCI_BRIDGE) ||
-          (subclass == PCI_SUBCLASS_CARDBUS_BRIDGE)) {
-        uint32_t bus_info = pci_read_long(addr | PCI_CFG_BAR2);
-        uint8_t primary = bus_info & 0xFF;
-        uint8_t secondary = (bus_info >> 8) & 0xFF;
-        uint8_t subordinate = (bus_info >> 16) & 0xFF;
-
-        out_description("Bus info: ", bus_info);
-        out_info("Recursing...");
-        pci_bus_info(secondary);
-        out_info("... Done recursing");
-      }
+      if (!maxfunc && pci_read_byte(addr+14) & 0x80)
+	maxfunc=7;
+      if (id == (pci_read_long(addr+0x8)))
+	res = addr;
     }
   }
+  
+  return res;
+}
+
+
+/**
+ * Find a capability for a device in the capability list.
+ * @param addr - address of the device in the pci config space
+ * @param id   - the capability id to search.
+ * @return 0 on failiure or the offset into the pci device of the capability
+ */
+static
+uint8_t
+pci_dev_find_cap(unsigned addr, unsigned char id)
+{
+  if ((pci_read_long(addr+PCI_CONF_HDR_CMD) & 0x100000) == 0) {
+    return 0;
+  }
+
+  unsigned char cap_offset = pci_read_byte(addr+PCI_CONF_HDR_CAP);
+
+  while (cap_offset) {
+    if (id == pci_read_byte(addr+cap_offset)) {
+      return cap_offset;
+    } else {
+      cap_offset = pci_read_byte(addr+cap_offset+PCI_CAP_OFFSET);
+    }
+  }
+
+  return 0;
+}
+  
+
+/**
+ * Print pci bars.
+ */
+void
+pci_print_bars(unsigned addr, unsigned count)
+{
+  unsigned bars[6];
+  unsigned masks[6];
+
+  //disable device
+  short cmd = pci_read_word_aligned(addr + 0x4);
+  pci_write_word_aligned(addr + 0x4, 0);
+
+  // read bars and masks
+  for (unsigned i=0; i < count; i++)
+    {
+      unsigned a = addr + 0x10 + i*4;
+      bars[i] = pci_read_long(a);
+      pci_write_long(a, ~0);
+      masks[i] = ~pci_read_long(a);
+      pci_write_long(a, bars[i]);
+    }
+  // reenable device
+  pci_write_word_aligned(addr + 0x4, cmd);
+
+
+  for (unsigned i=0; i < count; i++)
+    {
+      unsigned base, high_base = 0;
+      unsigned size, high_size = 0;
+      char ch;
+      if (bars[i] & 0x1)
+	{
+	  base = bars[i] & 0xfffe;
+	  size = (masks[i] & 0xfffe) | 1 | base;
+	  ch = 'i';
+	}
+      else 
+	{
+	  ch = 'm';
+	  base = bars[i] & ~0xf;
+	  size = masks[i] | 0xf | base;
+	  if ((bars[i] & 0x6) ==  4 && i<5)
+	    {
+	      high_base = bars[i+1];
+	      high_size = masks[i+1] | high_base;
+	      i++;
+	    }
+	}
+      if (base)
+	printf("    %c: %#x%x/%#x%x", ch, high_base, base, high_size, size);
+    }
+}
+
+
+/**
+ * Iterate over all devices in the pci config space.
+ */
+int
+pci_iterate_devices()
+{
+  for (unsigned bus=0; bus < 255; bus++)
+    for (unsigned dev=0; dev < 32; dev++)
+      {
+	unsigned char maxfunc = 0;
+	for (unsigned func=0; func<=maxfunc; func++)
+	  {
+	    unsigned addr = 0x80000000 | bus << 16 | dev << 11 | func << 8;
+	    unsigned value= pci_read_long(addr);
+	    unsigned class = pci_read_long(addr+0x8) >> 16;
+
+	    unsigned char header_type = pci_read_byte(addr+14);
+	    if (!maxfunc && header_type & 0x80)
+	      maxfunc=7;
+	    if (!value || value==0xffffffff)
+	      continue;
+
+	    printf("%x:%x.%x %x: %x:%x %x\n", bus, dev, func, class, value & 0xffff, value >> 16, header_type);
+	    //pci_print_bars(addr, header_type & 0x7f ? 2 : 6);
+	  }
+      }
+  return 0;
 }
 
 /* EOF */

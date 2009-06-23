@@ -28,26 +28,38 @@ if not (conf.CheckCHeader("stdint.h") and
 fenv = conf.Finish()
 
 fenv['CPPPATH'] = ["include/"]
-fenv['CCFLAGS'] = "-O1 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar"
+fenv['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar"
 fenv['LINKFLAGS'] = "-m elf_i386 -gc-sections -N -T morbo.ld" 
 fenv['LINK'] = "ld"
 fenv['AS'] = "yasm"
 fenv['ASFLAGS'] = "-g stabs -O5 -f elf32"
 
+cutil = fenv.StaticLibrary('cutil',
+                           [ 'strcmp.c',
+                             'strncpy.c',
+                             'strtok.c',
+                             'strtol.c',
+                             'strtoll.c',
+                             ])
+
 final = fenv.Program('morbo',
                      ['start.asm',
                       'cpuid.asm',
+                      'crc16.c',
                       'util.c',
                       'elf.c',
                       'reboot.c',
                       'pci.c',
+                      'printf.c',
                       'main.c',
                       'version.c',
                       'serial.c',
-                      'crc16.c',
                       'ohci.c',
                       'apic.c',
-                      ])
+                      ],
+                     LIBS=['cutil'],
+                     LIBPATH=['.']
+                     )
 Depends(final, 'morbo.ld')
 
 # EOF

@@ -9,7 +9,7 @@
 _mbheader:
         align 4
         dd 1BADB002h            ; magic
-        dd 3h                   ; features
+        dd 3h                   ; features (page aligned modules, mem info, video mode table)
         dd -(3h + 1BADB002h)    ; checksum
 
 _start:

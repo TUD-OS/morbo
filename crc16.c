@@ -1,11 +1,12 @@
 /* -*- Mode: C -*- */
+
 #include <stdint.h>
 #include <crc16.h>
 
 /** Calculate a CRC16 the CSR way.
  * Example from IEEE 1212-2001.
  */
-inline uint16_t
+static inline uint16_t
 crc16_step(uint32_t crc, uint32_t data)
 {
   uint32_t sum;
@@ -20,11 +21,11 @@ crc16_step(uint32_t crc, uint32_t data)
 
 
 uint16_t
-crc16(uint32_t *data, unsigned length)
+crc16(uint32_t *data, size_t length)
 {
   uint16_t crc = 0;
 
-  for (unsigned i = 0; i < length; i++)
+  for (size_t i = 0; i < length; i++)
     crc = crc16_step(crc, data[i]);
 
   return crc;

@@ -33,9 +33,9 @@ extract_module(struct mbi *mbi, unsigned *entry_point)
 
   // check elf header
   struct eh *elf = (struct eh *) m->mod_start;
-  ERROR(-31, *((unsigned *) elf->e_ident) != 0x464c457f || *((short *) elf->e_ident+2) != 0x0101, "ELF header incorrect");
-  ERROR(-32, elf->e_type!=2 || elf->e_machine!=3 || elf->e_version!=1, "ELF type incorrect");
-  ERROR(-33, sizeof(struct ph) > elf->e_phentsize, "e_phentsize to small");
+  assert(*((unsigned *) elf->e_ident) == 0x464c457f || *((short *) elf->e_ident+2) != 0x0101, "ELF header incorrect");
+  assert(elf->e_type==2 && elf->e_machine==3 && elf->e_version==1, "ELF type incorrect");
+  assert(sizeof(struct ph) <= elf->e_phentsize, "e_phentsize to small");
 
   for (unsigned i=0; i<elf->e_phnum; i++)
     {

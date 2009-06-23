@@ -51,5 +51,5 @@ uint16_t pci_read_word(uint32_t addr);
 uint32_t pci_read_long(uint32_t addr);
 
 uint32_t pci_find_device_by_class(uint8_t class, uint8_t subclass);
-void     pci_bus_info(uint8_t bus);
+uint32_t pci_find_device_by_id(uint16_t id);
 /* EOF */

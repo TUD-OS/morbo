@@ -14,7 +14,7 @@ ohci_config_rom_t   crom;
 
 /* Some debugging macros */
 
-#define OHCI_INFO(msg) out_info(msg)
+#define OHCI_INFO(msg, args...) printf("OHCI: " msg, ## args)
 
 /* Access to OHCI registers */
 #define OHCI_REG(dev, reg) dev[reg/4]
@@ -72,7 +72,7 @@ static void
 ohci_load_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
 {
   if (((uint32_t)crom) & 1023) {
-    OHCI_INFO("Misaligned Config ROM!");
+    OHCI_INFO("Misaligned Config ROM!\n");
     /* XXX Should abort here. */
   }
   
@@ -94,11 +94,17 @@ ohci_load_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
 static void
 wait_loop(ohci_dev_t dev, uint32_t reg, uint32_t mask, uint32_t value)
 {
+  const char waitchars[] = "|/-\\";
+  unsigned i = 0;
+  
+  OHCI_INFO("Waiting...  ");
+
   while ((OHCI_REG(dev, reg) & mask) != value) {
-    out_char('.');
     wait(1);
+    printf("[D%c", waitchars[i++ & 3]);
+
   }
-  out_char('\n');
+  printf("\n");
 }
 
 
@@ -130,10 +136,11 @@ ohci_force_bus_reset(ohci_dev_t dev)
 {
   uint8_t phy1 = phy_read(dev, 1);
   out_description("phy1 = ", phy1);
-  OHCI_INFO("Bus reset.");
+  OHCI_INFO("Bus reset.\n");
 
   /* Enable IBR in Phy 1 */
-  phy1 |= 2;
+  /* XXX Set RHB to 0? */
+  phy1 |= 1<<6;
   phy_write(dev, 1, phy1);
 }
 
@@ -143,12 +150,12 @@ ohci_force_bus_reset(ohci_dev_t dev)
 static void
 ohci_softreset(ohci_dev_t dev)
 {
-  OHCI_INFO("Soft-resetting controller...");
+  OHCI_INFO("Soft-resetting controller...\n");
   OHCI_REG(dev, HCControlSet) = HCControl_softReset;
 
   wait_loop(dev, HCControlSet, HCControl_softReset, 0);
 
-  OHCI_INFO(" OK");
+  OHCI_INFO("Reset completed.\n");
 }
 
 
@@ -162,52 +169,72 @@ ohci_initialize(ohci_dev_t dev)
   OHCI_REG(dev, HCControlClear) = ~0U;
 
   // enable LinkPowerStatus
-  OHCI_INFO("Start SCLK.");
+  OHCI_INFO("Start SCLK.\n");
   OHCI_REG(dev, HCControlSet) = HCControl_LPS;
+
   /* Wait for LPS to come up. */
   wait_loop(dev, HCControlSet, HCControl_LPS, HCControl_LPS);
 
   // wait some time to let device enable the link
   wait(50);
 
+  /* Phy dump */
+  /* XXX Reading PHY0 loops forever in wait_loop. Link probably needs to be up for that. */
+  for (unsigned i = 1; i < 4; i++) {
+    OHCI_INFO("phy[%d] = 0x%x\n", i, phy_read(dev, i));
+  }
+
   // reset Link Control register
   OHCI_REG(dev, LinkControlClear) = 0xFFFFFFFF;
 
   // accept requests from all nodes
   OHCI_REG(dev, AsReqFilterHiSet) = 0x80000000;
+  OHCI_REG(dev, AsReqFilterLoSet) = 0xFFFFFFFF;
 
   // accept physical requests from all nodes in our local bus
   OHCI_REG(dev, PhyReqFilterHiSet) = 0x7FFFFFFF;
   OHCI_REG(dev, PhyReqFilterLoSet) = 0xFFFFFFFF;
 
-  // allow access up to 0xffff00000000;
+  // allow access up to 0xffff00000000
   OHCI_REG(dev, PhyUpperBound) = 0xFFFF0000;
 
   // we retry because of a busy partner
   OHCI_REG(dev, ATRetries) = 0x822;
 
   if (OHCI_REG(dev, HCControlSet) & HCControl_linkEnable) {
-    OHCI_INFO("Link is already enabled. Why?!");
+    OHCI_INFO("Link is already enabled. Why?!\n");
   }
 
   /* Set Config ROM */
-  OHCI_INFO("Updating config ROM.");
+  OHCI_INFO("Updating config ROM.\n");
   ohci_generate_crom(dev, &crom);
   ohci_load_crom(dev, &crom);
 
-   // enable link
+  /* enable link */
   OHCI_REG(dev, HCControlSet) = HCControl_linkEnable;
+
+  /* Enable ports */
+  uint8_t phy_2 = phy_read(dev, 2);
+  uint8_t ports = phy_2 & ((1<<5) - 1);
+  bool enhanced_registers = ((phy_2 >> 5) & 1) == 1;
+  uint8_t topspeed = phy_2 >> 6;
+  OHCI_INFO("Card has %d ports.\n"
+	    "Enhanced PHY: %s\n"
+	    "Top speed   : %d\n",
+	    ports, enhanced_registers ? "yes" : "no", topspeed);
+
+#warning TODO Dump port info.
 
   /* Wait for link to come up. */
   wait_loop(dev, HCControlSet, HCControl_linkEnable, HCControl_linkEnable);
 
   // display link speed and max size of packets
-  out_description("Bus Options:", OHCI_REG(dev, BusOptions));
-  out_description("HCControl:",  OHCI_REG(dev, HCControlSet));
+  OHCI_INFO("Bus Options: 0x%x\n", OHCI_REG(dev, BusOptions));
+  OHCI_INFO("HCControl:   0x%x\n", OHCI_REG(dev, HCControlSet));
 
   /* Display GUID */
-  out_description("GUID_hi:", OHCI_REG(dev, GUIDHi));
-  out_description("GUID_lo:", OHCI_REG(dev, GUIDLo));
+  OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(dev, GUIDHi));
+  OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(dev, GUIDLo));
 
   return true;
 }
