@@ -28,7 +28,7 @@ if not (conf.CheckCHeader("stdint.h") and
 fenv = conf.Finish()
 
 fenv['CPPPATH'] = ["include/"]
-fenv['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar"
+fenv['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
 fenv['LINKFLAGS'] = "-m elf_i386 -gc-sections -N -T morbo.ld" 
 fenv['LINK'] = "ld"
 fenv['AS'] = "yasm"

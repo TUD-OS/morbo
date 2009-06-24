@@ -23,7 +23,7 @@
 #define assert(X, msg, args...)						\
   do {									\
     if (!(X)) {								\
-      printf ("%[Assertion \"%s\" failed at %s:%d%]\n" msg, #X,		\
+      printf ("Assertion \"%s\" failed at %s:%d\n" msg, #X,		\
 	      __FILE__, __LINE__, ## args);				\
       __exit(0xbad);							\
     }									\

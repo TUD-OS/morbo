@@ -1,11 +1,20 @@
 /* -*- Mode: C -*- */
 
+#include <stdbool.h>
+
 #include <util.h>
 #include <ohci.h>
 #include <ohci-registers.h>
 #include <ohci-crm.h>
 #include <crc16.h>
 #include <asm.h>
+
+/* Constants */
+
+#define NEVER 0xFFFFFFFFUL
+#define RESET_TIMEOUT 100
+#define PHY_TIMEOUT   100
+#define MISC_TIMEOUT  100
 
 /* Globals */
 
@@ -17,7 +26,7 @@ ohci_config_rom_t   crom;
 #define OHCI_INFO(msg, args...) printf("OHCI: " msg, ## args)
 
 /* Access to OHCI registers */
-#define OHCI_REG(dev, reg) dev[reg/4]
+#define OHCI_REG(dev, reg) (dev->ohci_regs[reg/4])
 
 
 #define DIR_TYPE_IMM    0
@@ -29,24 +38,24 @@ ohci_config_rom_t   crom;
 
 /* TODO This could be made nicer, but C sucks... */
 static void
-ohci_generate_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
+ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
   /* Initialize with zero */
   for (unsigned i = 0; i < 0x100; i++) 
     crom->field[i] = 0;
 
   /* Copy the first quadlets */
-  crom->field[1] = OHCI_REG(dev, BusID);
+  crom->field[1] = OHCI_REG(ohci, BusID);
   out_description("BusID       : ", crom->field[1]);
 
   /* We dont want to be bus master. */
-  crom->field[2] = OHCI_REG(dev, BusOptions) & 0x0FFFFFFF;
+  crom->field[2] = OHCI_REG(ohci, BusOptions) & 0x0FFFFFFF;
   out_description("BusOptions  : ", crom->field[2]);
 
-  crom->field[3] = OHCI_REG(dev, GUIDHi);
-  crom->field[4] = OHCI_REG(dev, GUIDLo);
-  out_description("GUID_hi:", OHCI_REG(dev, GUIDHi));
-  out_description("GUID_lo:", OHCI_REG(dev, GUIDLo));
+  crom->field[3] = OHCI_REG(ohci, GUIDHi);
+  crom->field[4] = OHCI_REG(ohci, GUIDLo);
+  out_description("GUID_hi:", OHCI_REG(ohci, GUIDHi));
+  out_description("GUID_lo:", OHCI_REG(ohci, GUIDLo));
 
   /* Config ROM is 4 bytes. Protect 4 bytes by CRC. */
   crom->field[0] = 0x04040000 | crc16(&(crom->field[1]), 4);
@@ -69,7 +78,7 @@ ohci_generate_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
 }
 
 static void
-ohci_load_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
+ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
   if (((uint32_t)crom) & 1023) {
     OHCI_INFO("Misaligned Config ROM!\n");
@@ -78,42 +87,43 @@ ohci_load_crom(ohci_dev_t dev, ohci_config_rom_t *crom)
   
   /* Update Info on OHC. This is done by writing to the address
      pointed to by the ConfigROMmap register. */
-  uint32_t *phys_crom = (uint32_t *)OHCI_REG(dev, ConfigROMmap);
+  uint32_t *phys_crom = (uint32_t *)OHCI_REG(ohci, ConfigROMmap);
   for (unsigned i = 0; i < CONFIG_ROM_SIZE; i ++)
     phys_crom[i] = ntohl(crom->field[i]);
   
-  OHCI_REG(dev, HCControlSet) = HCControl_BIBimageValid;
+  OHCI_REG(ohci, HCControlSet) = HCControl_BIBimageValid;
 
-  if ((OHCI_REG(dev, HCControlSet) & HCControl_linkEnable) == 0) {
+  if ((OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) == 0) {
     /* We are not up yet, so set these manually. */
-    OHCI_REG(dev, ConfigROMhdr) = crom->field[0];
-    OHCI_REG(dev, BusOptions)   = crom->field[2];
+    OHCI_REG(ohci, ConfigROMhdr) = crom->field[0];
+    OHCI_REG(ohci, BusOptions)   = crom->field[2];
   }
 }
 
 static void
-wait_loop(ohci_dev_t dev, uint32_t reg, uint32_t mask, uint32_t value)
+wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t value, uint32_t max_ticks)
 {
   const char waitchars[] = "|/-\\";
   unsigned i = 0;
   
   OHCI_INFO("Waiting...  ");
 
-  while ((OHCI_REG(dev, reg) & mask) != value) {
+  while ((OHCI_REG(ohci, reg) & mask) != value) {
     wait(1);
     printf("[D%c", waitchars[i++ & 3]);
 
+    assert((max_ticks == NEVER) || (i < max_ticks), "Timeout!");
   }
   printf("\n");
 }
 
 
 static uint8_t
-phy_read(ohci_dev_t dev, uint8_t addr)
+phy_read(struct ohci_controller *ohci, uint8_t addr)
 {
-  OHCI_REG(dev, PhyControl) = PhyControl_Read(addr);
-  wait_loop(dev, PhyControl, PhyControl_ReadDone, PhyControl_ReadDone);
-  return PhyControl_ReadData(OHCI_REG(dev, PhyControl));
+  OHCI_REG(ohci, PhyControl) = PhyControl_Read(addr);
+  wait_loop(ohci, PhyControl, PhyControl_ReadDone, PhyControl_ReadDone, PHY_TIMEOUT);
+  return PhyControl_ReadData(OHCI_REG(ohci, PhyControl));
 }
 
 /** Write a OHCI PHY register.
@@ -122,58 +132,146 @@ phy_read(ohci_dev_t dev, uint8_t addr)
  * \param data the data to write.
  */
 static void
-phy_write(ohci_dev_t dev, uint8_t addr, uint8_t data)
+phy_write(struct ohci_controller *ohci, uint8_t addr, uint8_t data)
 {
-  OHCI_REG(dev, PhyControl) = PhyControl_Write(addr, data);
-  wait_loop(dev, PhyControl, PhyControl_WriteDone, PhyControl_WriteDone);
+  OHCI_REG(ohci, PhyControl) = PhyControl_Write(addr, data);
+  wait_loop(ohci, PhyControl, PhyControl_WriteDone, PhyControl_WriteDone, PHY_TIMEOUT);
+}
+
+static void
+phy_page_select(struct ohci_controller *ohci, enum phy_page page, uint8_t port)
+{
+  assert(ohci->enhanced_phy_map, "no page select possible");
+  assert(port < 16, "bad port");
+  assert(page <  7, "bad page");
+
+  phy_write(ohci, 2, (page << 5) | port);
 }
 
 /** Force a bus reset.
  * \param dev the host controller.
  */
 void
-ohci_force_bus_reset(ohci_dev_t dev)
+ohci_force_bus_reset(struct ohci_controller *ohci)
 {
-  uint8_t phy1 = phy_read(dev, 1);
+  uint8_t phy1 = phy_read(ohci, 1);
   out_description("phy1 = ", phy1);
   OHCI_INFO("Bus reset.\n");
 
   /* Enable IBR in Phy 1 */
   /* XXX Set RHB to 0? */
   phy1 |= 1<<6;
-  phy_write(dev, 1, phy1);
+  phy_write(ohci, 1, phy1);
 }
 
 /** Perform a soft-reset of the Open Host Controller and wait until it
  *  has reinitialized itself.
  */
 static void
-ohci_softreset(ohci_dev_t dev)
+ohci_softreset(struct ohci_controller *ohci)
 {
   OHCI_INFO("Soft-resetting controller...\n");
-  OHCI_REG(dev, HCControlSet) = HCControl_softReset;
-
-  wait_loop(dev, HCControlSet, HCControl_softReset, 0);
-
+  OHCI_REG(ohci, HCControlSet) = HCControl_softReset;
+  wait_loop(ohci, HCControlSet, HCControl_softReset, 0, RESET_TIMEOUT);
   OHCI_INFO("Reset completed.\n");
 }
 
+/* Check version of controller. Returns true, if it is supported. */
+static bool
+ohci_check_version(struct ohci_controller *ohci)
+{
+  /* Check version of OHCI controller. */
+  uint32_t ohci_version_reg = OHCI_REG(ohci, Version);
+
+  assert(ohci_version_reg != 0xFFFFFFFF, "Invalid PCI data?");
+
+  bool     guid_rom      = (ohci_version_reg >> 24) == 1;
+  uint8_t  ohci_version  = (ohci_version_reg >> 16) & 0xFF;
+  uint8_t  ohci_revision = ohci_version_reg & 0xFF;
+
+  printf("GUID = %s, version = %x, revision = %x\n",
+	 guid_rom ? "yes" : "no?!", ohci_version, ohci_revision);
+  
+  if ((ohci_version <= 1) && (ohci_revision < 10)) {
+    printf("Controller implements OHCI %d.%d. But we require at least 1.10.\n",
+	   ohci_version, ohci_revision);
+    return false;
+  }
+
+  return true;
+}
 
 bool
-ohci_initialize(ohci_dev_t dev)
+ohci_initialize(const struct pci_device *pci_dev,
+		struct ohci_controller *ohci)
 {
-  // soft reset chip
-  ohci_softreset(dev);
+  assert(ohci != NULL, "Invalid pointer");
+  ohci->pci = pci_dev;
+  ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
+  assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
-  // disable all including byte swapping
-  OHCI_REG(dev, HCControlClear) = ~0U;
+  printf("OHCI registers are at 0x%x.\n", ohci->ohci_regs);
+  printf("OHCI (%x:%x) is a %s.\nQuirks: %x\n", 
+	 pci_dev->db->vendor_id,
+	 pci_dev->db->device_id,
+	 pci_dev->db->device_name,
+	 pci_dev->db->quirks);
 
-  // enable LinkPowerStatus
+  if (ohci->ohci_regs == NULL) {
+    printf("Uh? OHCI register pointer is NULL.\n");
+    return false;
+  }
+
+  if (!ohci_check_version(ohci)) {
+    return false;
+  }
+
+  /* Do a softreset. */
+  ohci_softreset(ohci);
+  
+  /* Disable linkEnable to be able to configure the low level stuff. */
+  OHCI_REG(ohci, HCControlClear) = HCControl_linkEnable;
+  wait_loop(ohci, HCControlSet, HCControl_linkEnable, 0, MISC_TIMEOUT);
+
+  /* Disable stuff we don't want/need, including byte swapping. */
+  OHCI_REG(ohci, HCControlClear) = HCControl_noByteSwapData | HCControl_ackTardyEnable;
+
+  /* Enable posted writes. With posted writes enabled, the controller
+     may return ack_complete for physical write requests, even if the
+     data has not been written yet. For coherency considerations,
+     refer to Chapter 3.3.3 in the OHCI spec. */
+  OHCI_REG(ohci, HCControlSet) = HCControl_postedWriteEnable;
+
+  /* Enable LinkPower Status. It should be on already, but what the
+     heck... If it is disabled, only some OHCI registers are
+     accessible and we cannot communicate with the PHY. */
   OHCI_INFO("Start SCLK.\n");
-  OHCI_REG(dev, HCControlSet) = HCControl_LPS;
+  OHCI_REG(ohci, HCControlSet) = HCControl_LPS;
+  wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
 
-  /* Wait for LPS to come up. */
-  wait_loop(dev, HCControlSet, HCControl_LPS, HCControl_LPS);
+  /* LPS is up. We can now communicate with the PHY. Discover how many
+     ports we have and whether this PHY supports the enhanced register
+     map. */
+  uint8_t phy_2 = phy_read(ohci, 2);
+  ohci->total_ports = phy_2 & ((1<<5) - 1);
+  ohci->enhanced_phy_map = (phy_2 >> 5) == 7;
+
+  OHCI_INFO("Controller has %d ports and %s enhanced PHY map.\n",
+	    ohci->total_ports,
+	    ohci->enhanced_phy_map ? "an" : "no");
+
+  if (ohci->enhanced_phy_map) {
+    /*  */
+  }
+
+  /* Check if we are responsible for configuring IEEE1394a
+     enhancements. */
+  if (OHCI_REG(ohci, HCControl_programPhyEnable) & HCControl_programPhyEnable) {
+    OHCI_INFO("Configuring IEEE1394a enhancements.\n");
+    OHCI_INFO(" -> not implemented...\n");
+  } else {
+    OHCI_INFO("IEEE1394a enhancements are already configured.\n");
+  }
 
   // wait some time to let device enable the link
   wait(50);
@@ -181,71 +279,59 @@ ohci_initialize(ohci_dev_t dev)
   /* Phy dump */
   /* XXX Reading PHY0 loops forever in wait_loop. Link probably needs to be up for that. */
   for (unsigned i = 1; i < 4; i++) {
-    OHCI_INFO("phy[%d] = 0x%x\n", i, phy_read(dev, i));
+    OHCI_INFO("phy[%d] = 0x%x\n", i, phy_read(ohci, i));
   }
 
   // reset Link Control register
-  OHCI_REG(dev, LinkControlClear) = 0xFFFFFFFF;
+  OHCI_REG(ohci, LinkControlClear) = 0xFFFFFFFF;
 
   // accept requests from all nodes
-  OHCI_REG(dev, AsReqFilterHiSet) = 0x80000000;
-  OHCI_REG(dev, AsReqFilterLoSet) = 0xFFFFFFFF;
+  OHCI_REG(ohci, AsReqFilterHiSet) = 0x80000000;
+  OHCI_REG(ohci, AsReqFilterLoSet) = 0xFFFFFFFF;
 
   // accept physical requests from all nodes in our local bus
-  OHCI_REG(dev, PhyReqFilterHiSet) = 0x7FFFFFFF;
-  OHCI_REG(dev, PhyReqFilterLoSet) = 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterHiSet) = 0x7FFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = 0xFFFFFFFF;
 
   // allow access up to 0xffff00000000
-  OHCI_REG(dev, PhyUpperBound) = 0xFFFF0000;
+  OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
 
   // we retry because of a busy partner
-  OHCI_REG(dev, ATRetries) = 0x822;
+  OHCI_REG(ohci, ATRetries) = 0x822;
 
-  if (OHCI_REG(dev, HCControlSet) & HCControl_linkEnable) {
+  if (OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) {
     OHCI_INFO("Link is already enabled. Why?!\n");
   }
 
   /* Set Config ROM */
   OHCI_INFO("Updating config ROM.\n");
-  ohci_generate_crom(dev, &crom);
-  ohci_load_crom(dev, &crom);
+  ohci_generate_crom(ohci, &crom);
+  ohci_load_crom(ohci, &crom);
 
   /* enable link */
-  OHCI_REG(dev, HCControlSet) = HCControl_linkEnable;
-
-  /* Enable ports */
-  uint8_t phy_2 = phy_read(dev, 2);
-  uint8_t ports = phy_2 & ((1<<5) - 1);
-  bool enhanced_registers = ((phy_2 >> 5) & 1) == 1;
-  uint8_t topspeed = phy_2 >> 6;
-  OHCI_INFO("Card has %d ports.\n"
-	    "Enhanced PHY: %s\n"
-	    "Top speed   : %d\n",
-	    ports, enhanced_registers ? "yes" : "no", topspeed);
-
-#warning TODO Dump port info.
+  OHCI_REG(ohci, HCControlSet) = HCControl_linkEnable;
 
   /* Wait for link to come up. */
-  wait_loop(dev, HCControlSet, HCControl_linkEnable, HCControl_linkEnable);
+  wait_loop(ohci, HCControlSet, HCControl_linkEnable, HCControl_linkEnable, MISC_TIMEOUT);
 
   // display link speed and max size of packets
-  OHCI_INFO("Bus Options: 0x%x\n", OHCI_REG(dev, BusOptions));
-  OHCI_INFO("HCControl:   0x%x\n", OHCI_REG(dev, HCControlSet));
+  OHCI_INFO("Bus Options: 0x%x\n", OHCI_REG(ohci, BusOptions));
+  OHCI_INFO("HCControl:   0x%x\n", OHCI_REG(ohci, HCControlSet));
 
   /* Display GUID */
-  OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(dev, GUIDHi));
-  OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(dev, GUIDLo));
+  OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(ohci, GUIDHi));
+  OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(ohci, GUIDLo));
 
   return true;
 }
 
 /** Wait until we get a vaild bus number. */
 uint8_t
-ohci_wait_nodeid(ohci_dev_t dev)
+ohci_wait_nodeid(struct ohci_controller *ohci)
 {
-  wait_loop(dev, NodeID, NodeID_idValid, NodeID_idValid);
+  wait_loop(ohci, NodeID, NodeID_idValid, NodeID_idValid, MISC_TIMEOUT);
 
-  uint32_t nodeid_reg = OHCI_REG(dev, NodeID);
+  uint32_t nodeid_reg = OHCI_REG(ohci, NodeID);
   uint8_t node_number = nodeid_reg & NodeID_nodeNumber;
 
   return node_number;

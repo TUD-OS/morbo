@@ -28,6 +28,7 @@
 #define HCControlClear               0x054
 #define  HCControl_BIBimageValid	0x80000000
 #define  HCControl_noByteSwapData	0x40000000
+#define  HCControl_ackTardyEnable	0x20000000
 #define  HCControl_programPhyEnable	0x00800000
 #define  HCControl_aPhyEnhanceEnable	0x00400000
 #define  HCControl_LPS			0x00080000
@@ -84,6 +85,11 @@
 #define PhyReqFilterLoSet            0x118
 #define PhyReqFilterLoClear          0x11C
 #define PhyUpperBound                0x120
+
+enum phy_page {
+  PORT_STATUS = 0,
+  VENDOR_INFO = 1,
+};
 
 #define AsReqTrContextBase           0x180
 #define AsReqTrContextControlSet     0x180

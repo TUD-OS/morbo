@@ -15,8 +15,7 @@
 #include <elf.h>
 #include <util.h>
 
-
-int
+static int
 extract_module(struct mbi *mbi, unsigned *entry_point)
 {
 
@@ -54,12 +53,13 @@ extract_module(struct mbi *mbi, unsigned *entry_point)
  * Start the first module as kernel.
  */
 int
-start_module(struct mbi *mbi)
+start_module(const struct mbi *mbi)
 {
   int res;
   unsigned entry_point;
 
-  if ((res = extract_module(mbi, &entry_point)))
+  /* XXX Casting away constness */
+  if ((res = extract_module((struct mbi *)mbi, &entry_point)))
     return res;
   // wait(2000);
   out_char('\n');

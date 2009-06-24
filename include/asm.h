@@ -16,7 +16,7 @@
 
 #include <stdint.h>
 
-void jmp_multiboot(void * mbi, uint32_t entry) __attribute__((noreturn));
+void jmp_multiboot(const void * mbi, uint32_t entry) __attribute__((noreturn));
 
 static inline uint32_t
 ntohl(uint32_t v)

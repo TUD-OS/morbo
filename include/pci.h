@@ -15,6 +15,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <pci_db.h>
 
 enum pci_class {
   PCI_CLASS_BRIDGE_DEV      = 0x06,
@@ -47,10 +48,17 @@ enum pci_constants {
   PCI_CAP_OFFSET = 1,
 };
 
-uint8_t  pci_read_byte(uint32_t addr);
-uint16_t pci_read_word(uint32_t addr);
-uint32_t pci_read_long(uint32_t addr);
+struct pci_device {
+  const struct pci_db_entry *db;
+  uint32_t cfg_address;		/* Address of config space */
+};
 
-uint32_t pci_find_device_by_class(uint8_t class, uint8_t subclass);
-uint32_t pci_find_device_by_id(uint16_t id);
+uint32_t pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset);
+
+/* Find a device by its class. Always finds the last device of the
+   given class. On success, returns true and fills out the given
+   pci_device structure. Otherwise, returns false. */
+bool pci_find_device_by_class(uint8_t class, uint8_t subclass,
+			      struct pci_device *dev);
+
 /* EOF */

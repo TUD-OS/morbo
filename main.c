@@ -92,53 +92,23 @@ main(const struct mbi *mbi)
     printf("Yeah, I did it. The APIC is enabled. :-)");
   }
 
-  out_info("Trying to find an OHCI controller...");
-  uint32_t ohci_addr;
-  
-  /* Try to find OHCI Controller */
-  ohci_addr = pci_find_device_by_class(PCI_CLASS_SERIAL_BUS_CTRL,
-                                       PCI_SUBCLASS_IEEE_1394);
+  printf("Trying to find an OHCI controller... ");
 
-  if (ohci_addr != 0) {
-    volatile uint32_t *dev = (uint32_t *) pci_read_long(ohci_addr + PCI_CFG_BAR0);
+  struct pci_device pci_ohci;
+  struct ohci_controller ohci;
 
-    uint32_t vendor_id = pci_read_long(ohci_addr + PCI_CFG_VENDOR_ID);
-    uint32_t device_id = vendor_id >> 16;
-    vendor_id &= 0xFFFF;
-
-    printf("OHCI (%x:%x) is at 0x%x in PCI config space.\n", 
-	   device_id & 0xFFFF, device_id >> 16, ohci_addr);
-    printf("OHCI is a %s.\n", pci_lookup_device(vendor_id, device_id)->device_name);
-
-    if (dev == NULL) {
-      printf("ohci1394 registers invalid.\n");
-      goto error;
-    }
-
-    /* Check version of OHCI controller. */
-    uint32_t ohci_version_reg = *dev;
-    bool     guid_rom      = (ohci_version_reg >> 24) == 1;
-    uint8_t  ohci_version  = (ohci_version_reg >> 16) & 0xFF;
-    uint8_t  ohci_revision = ohci_version_reg & 0xFF;
-
-    printf("GUID = %s, version = %x, revision = %x\n",
-	   guid_rom ? "yes" : "no?!", ohci_version, ohci_revision);
-    
-    if ((ohci_version <= 1) && (ohci_revision < 10)) {
-      printf("Controller implements OHCI %d.%d. But we require at least 1.10.\n",
-	     ohci_version, ohci_revision);
-      goto error;
-    }
-
-    if (!ohci_initialize(dev)) {
-      printf("Controller could not be initialized.\n");
-      goto error;
-    }
-
-    printf("Initialization complete.\n");
-  } else {
-    out_info("No OHCI controller found.");
+  if (!pci_find_device_by_class(PCI_CLASS_SERIAL_BUS_CTRL, PCI_SUBCLASS_IEEE_1394, &pci_ohci)) {
+    printf("No OHCI found.\n");
     goto error;
+  } else {
+    printf("OK\n");
+  }
+
+  if (!ohci_initialize(&pci_ohci, &ohci)) {
+    printf("Could not initialize controller.\n");
+    goto error;
+  } else {
+    printf("Initialization complete.\n");
   }
 
   goto no_error;
