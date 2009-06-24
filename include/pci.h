@@ -31,6 +31,7 @@ enum pci_subclass {
 };
 
 enum pci_config_space {
+  PCI_CFG_VENDOR_ID = 0x0,
   PCI_CFG_REVID = 0x08,         /* Read uint32 to get class code in upper 16bit */
   PCI_CFG_BAR0  = 0x10,
   PCI_CFG_BAR1  = 0x14,

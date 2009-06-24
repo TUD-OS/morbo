@@ -16,6 +16,7 @@
 #include <stdbool.h>
 
 #include <pci.h>
+#include <pci_db.h>
 #include <mbi.h>
 #include <util.h>
 #include <serial.h>
@@ -99,9 +100,15 @@ main(const struct mbi *mbi)
                                        PCI_SUBCLASS_IEEE_1394);
 
   if (ohci_addr != 0) {
-    volatile uint32_t *dev = (uint32_t *) pci_read_long(ohci_addr+PCI_CFG_BAR0);
+    volatile uint32_t *dev = (uint32_t *) pci_read_long(ohci_addr + PCI_CFG_BAR0);
 
-    printf("OHCI is at 0x%x in PCI config space.\n", ohci_addr);
+    uint32_t vendor_id = pci_read_long(ohci_addr + PCI_CFG_VENDOR_ID);
+    uint32_t device_id = vendor_id >> 16;
+    vendor_id &= 0xFFFF;
+
+    printf("OHCI (%x:%x) is at 0x%x in PCI config space.\n", 
+	   device_id & 0xFFFF, device_id >> 16, ohci_addr);
+    printf("OHCI is a %s.\n", pci_lookup_device(vendor_id, device_id)->device_name);
 
     if (dev == NULL) {
       printf("ohci1394 registers invalid.\n");
