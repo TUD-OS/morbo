@@ -16,7 +16,7 @@ if not conf.CheckCommand("yasm"):
     Exit(1)
 
 # Barfs with scons 1.2.0
-if not (conf.CheckCC() and conf.CheckCXX()):
+if not conf.CheckCC():
     print("Your compiler is not usable.")
     Exit(1)
 
