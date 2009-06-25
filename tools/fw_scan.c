@@ -11,6 +11,9 @@
 
 #include <slang.h>
 #include <libraw1394/raw1394.h>
+#include <libraw1394/csr.h>
+
+#include <ohci.h>
 
 /* Constants */
 
@@ -23,7 +26,6 @@ enum Color_obj {
 };
 
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
-#define NODE_NO(x) (x & ((1<<6) - 1))
 
 /* Globals */
 
@@ -116,7 +118,6 @@ main(int argc, char **argv)
     SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
 
     /* Print node info. */
-    static quadlet_t buf[1024/4]; /* Max 1K CROM */
     int nodes = raw1394_get_nodecount(fw_handle);
     nodeid_t local_id = raw1394_get_local_id(fw_handle);
     nodeid_t irm_id = raw1394_get_irm_id(fw_handle);
@@ -127,12 +128,49 @@ main(int argc, char **argv)
       bool root   = (i == nodes - 1);
       bool irm    = (i == NODE_NO(irm_id));
 
-      SLsmg_gotorc(i, 0);
-      SLsmg_set_color(myself ? COLOR_MYSELF : COLOR_NORMAL);
+      /* Get CROM. */
+      bool broken = false;
+      bool info_available = false;
+      char *status = "UNDEF";
+      static quadlet_t crom_buf[1024/4]; /* Max 1K CROM */
+      nodeid_t target = LOCAL_BUS | i;
 
-      SLsmg_printf("%3u %c%c | ", i,
+      for (unsigned word = 0; word < 5; word++) {
+	int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
+			       sizeof(quadlet_t), crom_buf + word);
+	
+	if (ret != 0) {
+	  broken = true;
+	  break;
+	}
+
+	if (word == 0) {
+	  if (crom_buf[word] == 0) {
+	    status = "INIT";
+	    break;
+	  } else if ((crom_buf[word] >> 24) == 1) {
+	    status = "DUMB";	/* Vendor CROM */
+	    break;
+	  }
+	} else {
+	  status = "RUN";
+	  info_available = true;
+	}
+
+      }
+      
+
+      /* Finished collecting information. Now display it. */
+
+      SLsmg_gotorc(i, 0);
+      SLsmg_set_color(myself ? COLOR_MYSELF : (broken ? COLOR_BROKEN : COLOR_NORMAL));
+
+      SLsmg_printf("%3u %c%c | %6s %8x %8x |", i,
 		   root ? 'R' : ' ',
-		   irm ?  'I' : ' '
+		   irm ?  'I' : ' ',
+		   status,
+		   broken ? 0xDEAD : crom_buf[0],
+		   (info_available && !broken) ? crom_buf[1] : 0xDEAD
 		   );
 
       SLsmg_erase_eol();
@@ -148,7 +186,7 @@ main(int argc, char **argv)
     SLsmg_set_color(COLOR_STATUS);
 
     static int i = 0;
-    SLsmg_printf("Hit C-c to quit | %2d nodes | generation %2u | libraw1394 %s",
+    SLsmg_printf("Hit q to quit | %2d nodes | generation %2u | libraw1394 %s",
 		 nodes,
 		 raw1394_get_generation(fw_handle), 
 		 raw1394_get_libversion());
@@ -162,8 +200,27 @@ main(int argc, char **argv)
       raw1394_loop_iterate(fw_handle);
     }
 
-    sleep(delay);
+    /* Sleep waiting for user input. */
+    SLang_input_pending(1);
 
+    /* Process user input */
+    while (SLang_input_pending(0)) {
+      switch (SLang_getkey()) {
+      case 'q':
+	done = true;
+	goto skip;
+      case 'r':
+	raw1394_reset_bus(fw_handle);
+	break;
+      default:
+	/* IGNORE */
+	break;
+      }
+    }
+
+
+
+  skip:
     SLsmg_gotorc(-1, 0);
     SLsmg_refresh();
   }

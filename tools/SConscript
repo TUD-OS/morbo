@@ -14,7 +14,10 @@ def CheckPKG(context, name):
      return ret
 
 henv = Environment()
+
 henv.ParseConfig('pkg-config --cflags --libs libraw1394')
+
+henv['CPPPATH'] = ["include/"]
 henv['CCFLAGS'] = "-O2 -march=native -pipe -g -std=c99 -Werror"
 henv['LIBS'] += ['slang']
 
@@ -43,6 +46,11 @@ if not conf.CheckFunc('SLsmg_init_smg'):
 
 henv = conf.Finish()
 
-henv.Program('fw_scan', ['fw_scan.c'])
+binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
+             henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
+             henv.Program('fw_scan', ['fw_scan.c']),
+             ]
 
+Install('#bin', binaries)
+    
 # EOF
