@@ -112,6 +112,7 @@ main(int argc, char **argv)
     if (screen_size_changed) {
       SLtt_get_screen_size ();
       SLsmg_reinit_smg ();
+      screen_size_changed = false;
       /* Redraw... */
     }
 
@@ -192,13 +193,17 @@ main(int argc, char **argv)
 		 raw1394_get_libversion());
     SLsmg_erase_eol();
 
-    /* Process Firewire messages */
-    struct pollfd fd = { .fd = raw1394_get_fd(fw_handle),
-			 .events = POLLIN | POLLOUT | POLLERR };
+    SLsmg_gotorc(-1, 0);
+    SLsmg_refresh();
 
-    while (poll(&fd, 1, 0) == 1) {
-      raw1394_loop_iterate(fw_handle);
-    }
+    /* Process Firewire messages */
+
+/*     struct pollfd fd = { .fd = raw1394_get_fd(fw_handle), */
+/* 			 .events = POLLIN | POLLOUT }; */
+
+/*     while (poll(&fd, 1, 0) == 1) { */
+/*       raw1394_loop_iterate(fw_handle); */
+/*     } */
 
     /* Sleep waiting for user input. */
     SLang_input_pending(1);
@@ -208,7 +213,7 @@ main(int argc, char **argv)
       switch (SLang_getkey()) {
       case 'q':
 	done = true;
-	goto skip;
+	break;
       case 'r':
 	raw1394_reset_bus(fw_handle);
 	break;
@@ -218,11 +223,6 @@ main(int argc, char **argv)
       }
     }
 
-
-
-  skip:
-    SLsmg_gotorc(-1, 0);
-    SLsmg_refresh();
   }
 
   return 0;
