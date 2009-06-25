@@ -7,9 +7,9 @@ def CheckCommand(context, cmd):
        return result
 
 # Construct freestanding environment
-fenv = Environment()
+freestanding_env = Environment()
 
-conf = Configure(fenv, custom_tests = {'CheckCommand' : CheckCommand})
+conf = Configure(freestanding_env, custom_tests = {'CheckCommand' : CheckCommand})
 
 if not conf.CheckCommand("yasm"):
     print("Please install yasm.")
@@ -25,42 +25,17 @@ if not (conf.CheckCHeader("stdint.h") and
     print("Standard C headers are missing.")
     Exit(1)
 
-fenv = conf.Finish()
+freestanding_env = conf.Finish()
 
-fenv['CPPPATH'] = ["include/"]
-fenv['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
-fenv['LINKFLAGS'] = "-m elf_i386 -gc-sections -N -T morbo.ld" 
-fenv['LINK'] = "ld"
-fenv['AS'] = "yasm"
-fenv['ASFLAGS'] = "-g stabs -O5 -f elf32"
+freestanding_env['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
+freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
+freestanding_env['LINK'] = "ld"
+freestanding_env['AS'] = "yasm"
+freestanding_env['ASFLAGS'] = "-g stabs -O5 -f elf32"
 
-cutil = fenv.StaticLibrary('cutil',
-                           [ 'strcmp.c',
-                             'strncpy.c',
-                             'strtok.c',
-                             'strtol.c',
-                             'strtoll.c',
-                             ])
 
-final = fenv.Program('morbo',
-                     ['start.asm',
-                      'cpuid.asm',
-                      'crc16.c',
-                      'util.c',
-                      'elf.c',
-                      'reboot.c',
-                      'pci.c',
-                      'pci_db.c',
-                      'printf.c',
-                      'main.c',
-                      'version.c',
-                      'serial.c',
-                      'ohci.c',
-                      'apic.c',
-                      ],
-                     LIBS=['cutil'],
-                     LIBPATH=['.']
-                     )
-Depends(final, 'morbo.ld')
+Export('freestanding_env')
+SConscript(["standalone/SConscript",
+            ])
 
 # EOF

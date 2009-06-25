@@ -1,0 +1,39 @@
+# -*- Mode: Python -*-
+
+Import('freestanding_env')
+
+fenv = freestanding_env.Clone()
+
+fenv['CPPPATH'] = ["include/"]
+fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
+
+cutil = fenv.StaticLibrary('cutil',
+                           [ 'strcmp.c',
+                             'strncpy.c',
+                             'strtok.c',
+                             'strtol.c',
+                             'strtoll.c',
+                             ])
+
+final = fenv.Program('morbo',
+                     ['start.asm',
+                      'cpuid.asm',
+                      'crc16.c',
+                      'util.c',
+                      'elf.c',
+                      'reboot.c',
+                      'pci.c',
+                      'pci_db.c',
+                      'printf.c',
+                      'main.c',
+                      'version.c',
+                      'serial.c',
+                      'ohci.c',
+                      'apic.c',
+                      ],
+                     LIBS=['cutil'],
+                     LIBPATH=['.']
+                     )
+Depends(final, 'morbo.ld')
+
+# EOF
