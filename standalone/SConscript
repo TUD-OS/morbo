@@ -9,6 +9,7 @@ fenv['LINKFLAGS'] += " -T standalone/morbo.ld"
 
 cutil = fenv.StaticLibrary('cutil',
                            [ 'strcmp.c',
+                             'strlen.c',
                              'strncpy.c',
                              'strtok.c',
                              'strtol.c',
@@ -34,6 +35,7 @@ final = fenv.Program('morbo',
                      LIBS=['cutil'],
                      LIBPATH=['.']
                      )
+
 Depends(final, 'morbo.ld')
 
 # EOF

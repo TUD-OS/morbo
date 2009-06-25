@@ -34,8 +34,8 @@
  */
 #define memcpy(x,y,z) __builtin_memcpy(x,y,z)
 #define memset(x,y,z) __builtin_memset(x,y,z)
-#define strlen(x)     __builtin_strlen(x)
 
+size_t strlen(const char *s);
 char *strtok(char *s, const char *delim);
 int strcmp(const char *s1, const char *s2);
 char *strncpy(char * __restrict dst, const char * __restrict src, size_t n);
