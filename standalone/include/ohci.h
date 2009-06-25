@@ -17,6 +17,7 @@ struct ohci_controller {
   bool enhanced_phy_map;
 };
 
+void    ohci_poll_events(struct ohci_controller *ohci);
 bool    ohci_initialize(const struct pci_device *pci_dev,
 			struct ohci_controller *ohci);
 

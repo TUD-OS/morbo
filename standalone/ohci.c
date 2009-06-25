@@ -334,10 +334,38 @@ ohci_initialize(const struct pci_device *pci_dev,
   OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(ohci, GUIDHi));
   OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(ohci, GUIDLo));
 
+  ohci_poll_events(ohci);
+
   return true;
 }
 
-/** Wait until we get a vaild bus number. */
+void
+ohci_poll_events(struct ohci_controller *ohci)
+{
+  bool bus_reset_msg = true;
+
+  while (1) {
+    uint32_t intevent = OHCI_REG(ohci, IntEventSet); /* Unmasked event bitfield */
+    
+    if ((intevent & busReset) != 0) {
+      if (bus_reset_msg) {
+	OHCI_INFO("Bus reset!\n");
+	bus_reset_msg = false;
+      }
+    }
+    if ((intevent & selfIDComplete) != 0) {
+      OHCI_INFO("Bus reset complete. Clearing event bits.\n");
+      OHCI_REG(ohci, IntEventClear) = busReset | selfIDComplete;
+
+      bus_reset_msg = true;
+      /* XXX Bus reset complete. What now? */
+    }
+
+    wait(1);
+  }
+}
+
+/** Wait until we get a valid bus number. */
 uint8_t
 ohci_wait_nodeid(struct ohci_controller *ohci)
 {
