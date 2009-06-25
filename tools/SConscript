@@ -18,7 +18,7 @@ henv = Environment()
 henv.ParseConfig('pkg-config --cflags --libs libraw1394')
 
 henv['CPPPATH'] = ["include/"]
-henv['CCFLAGS'] = "-O2 -march=native -pipe -g -std=c99 -Werror"
+henv['CCFLAGS'] = "-O0 -march=native -pipe -g -std=c99 -Werror"
 henv['LIBS'] += ['slang']
 
 conf = Configure(henv, custom_tests = {'CheckPKGConfig' : CheckPKGConfig,
@@ -32,8 +32,8 @@ if not conf.CheckPKGConfig('0.15.0'):
        print('pkg-config >= 0.15.0 not found.')
        Exit(1)
 
-if not conf.CheckPKG('libraw1394 >= 2.0.1'):
-       print('You at least libraw1394-2.0.1.')
+if not conf.CheckPKG('libraw1394'):
+       print('Could not find libraw1394')
        Exit(1)
 
 if not conf.CheckCHeader('slang.h'):
@@ -47,6 +47,7 @@ if not conf.CheckFunc('SLsmg_init_smg'):
 henv = conf.Finish()
 
 binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
+             henv.Program('fw_peek', ['fw_peek.c']),
              henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
              henv.Program('fw_scan', ['fw_scan.c']),
              ]
