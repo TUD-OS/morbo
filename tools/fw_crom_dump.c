@@ -61,7 +61,7 @@ main(int argc, char **argv)
 			       sizeof(quadlet_t), &buf);
 
 	if (ret == 0) {
-	  printf(" %08lx", buf);
+	  printf(" %08x", buf);
 	} else {
 	  printf(" XXXXXXXX");
 	}

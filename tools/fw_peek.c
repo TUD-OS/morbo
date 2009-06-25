@@ -63,7 +63,7 @@ main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  printf("%lx\n", val);
+  printf("%x\n", val);
 
   return 0;
 }

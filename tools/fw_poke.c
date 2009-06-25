@@ -55,7 +55,7 @@ main(int argc, char **argv)
   nodeaddr_t   addr    = strtoll(argv[optind+1], NULL, 0);
   quadlet_t    val     = strtol(argv[optind+2], NULL, 0);
 
-  printf("Writing %lx at %llx on node %x.\n",
+  printf("Writing %x at %llx on node %x.\n",
 	 val, addr, node_no);
 
   int res = raw1394_write(fw_handle, LOCAL_BUS | node_no, addr, sizeof(quadlet_t), &val);
