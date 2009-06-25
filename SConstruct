@@ -6,8 +6,15 @@ def CheckCommand(context, cmd):
        context.Result(result is not None)
        return result
 
+
 # Construct freestanding environment
 freestanding_env = Environment()
+
+freestanding_env['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
+freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
+freestanding_env['LINK'] = "ld"
+freestanding_env['AS'] = "yasm"
+freestanding_env['ASFLAGS'] = "-g stabs -O5 -f elf32"
 
 conf = Configure(freestanding_env, custom_tests = {'CheckCommand' : CheckCommand})
 
@@ -27,15 +34,10 @@ if not (conf.CheckCHeader("stdint.h") and
 
 freestanding_env = conf.Finish()
 
-freestanding_env['CCFLAGS'] = "-O2 -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
-freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
-freestanding_env['LINK'] = "ld"
-freestanding_env['AS'] = "yasm"
-freestanding_env['ASFLAGS'] = "-g stabs -O5 -f elf32"
-
-
 Export('freestanding_env')
+
 SConscript(["standalone/SConscript",
+            "tools/SConscript",
             ])
 
 # EOF

@@ -1,0 +1,48 @@
+# -*- Mode: Python -*-
+
+
+def CheckPKGConfig(context, version):
+     context.Message( 'Checking for pkg-config... ' )
+     ret = context.TryAction('pkg-config --atleast-pkgconfig-version=%s' % version)[0]
+     context.Result( ret )
+     return ret
+
+def CheckPKG(context, name):
+     context.Message( 'Checking for %s... ' % name )
+     ret = context.TryAction('pkg-config --exists \'%s\'' % name)[0]
+     context.Result( ret )
+     return ret
+
+henv = Environment()
+henv.ParseConfig('pkg-config --cflags --libs libraw1394')
+henv['CCFLAGS'] = "-O2 -march=native -pipe -g -std=c99 -Werror"
+henv['LIBS'] += ['slang']
+
+conf = Configure(henv, custom_tests = {'CheckPKGConfig' : CheckPKGConfig,
+                                       'CheckPKG' : CheckPKG })
+
+if not conf.CheckCC():
+       print("Your compiler is not usable.")
+       Exit(1)
+
+if not conf.CheckPKGConfig('0.15.0'):
+       print('pkg-config >= 0.15.0 not found.')
+       Exit(1)
+
+if not conf.CheckPKG('libraw1394 >= 2.0.1'):
+       print('You at least libraw1394-2.0.1.')
+       Exit(1)
+
+if not conf.CheckCHeader('slang.h'):
+       print('Could not find slang headers.')
+       Exit(1)
+
+if not conf.CheckFunc('SLsmg_init_smg'):
+       print('Could not link to slang.')
+       Exit(1)
+
+henv = conf.Finish()
+
+henv.Program('fw_scan', ['fw_scan.c'])
+
+# EOF
