@@ -98,6 +98,9 @@ enum phy_port_info {
   PHY_PORT_CHILD     = 1 << 3,
 };
 
+#define ATactive                     (1<<10)
+#define ATrun                        (1<<15)
+
 #define AsReqTrContextBase           0x180
 #define AsReqTrContextControlSet     0x180
 #define AsReqTrContextControlClear   0x184

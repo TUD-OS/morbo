@@ -21,6 +21,10 @@
 static __attribute__ ((aligned(1024)))
 ohci_config_rom_t   crom;
 
+/* XXX Should be in struct ohci_controller. */
+static __attribute__ ((aligned(2048)))
+uint32_t selfid_buf[504];
+
 /* Some debugging macros */
 
 #define OHCI_INFO(msg, args...) printf("OHCI: " msg, ## args)
@@ -210,6 +214,10 @@ ohci_initialize(const struct pci_device *pci_dev,
   assert(ohci != NULL, "Invalid pointer");
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
+
+  ohci->as_request_filter  = ~0LLU; /* Enable access from all nodes */
+  ohci->phy_request_filter = ~0LLU; /* to all memory. */
+
   assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
   printf("OHCI registers are at 0x%x.\n", ohci->ohci_regs);
@@ -297,15 +305,22 @@ ohci_initialize(const struct pci_device *pci_dev,
   OHCI_REG(ohci, LinkControlClear) = 0xFFFFFFFF;
 
   // accept requests from all nodes
-  OHCI_REG(ohci, AsReqFilterHiSet) = 0x80000000;
-  OHCI_REG(ohci, AsReqFilterLoSet) = 0xFFFFFFFF;
+  OHCI_REG(ohci, AsReqFilterHiSet) = ohci->as_request_filter >> 32;
+  OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
 
   // accept physical requests from all nodes in our local bus
-  OHCI_REG(ohci, PhyReqFilterHiSet) = 0x7FFFFFFF;
-  OHCI_REG(ohci, PhyReqFilterLoSet) = 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter && 0xFFFFFFFF;
 
   // allow access up to 0xffff00000000
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
+
+  /* Set SelfID buffer */
+  selfid_buf[0] = 0xDEADBEEF;		/* error checking */
+  OHCI_REG(ohci, SelfIDBuffer) = (uint32_t)selfid_buf;
+  OHCI_REG(ohci, LinkControlSet) = LinkControl_rcvSelfID;
+
+  OHCI_INFO("Generation: %x\n", (OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF);
 
   // we retry because of a busy partner
   OHCI_REG(ohci, ATRetries) = 0x822;
@@ -339,29 +354,60 @@ ohci_initialize(const struct pci_device *pci_dev,
   return true;
 }
 
+/** Handle a bus reset condition. Does not return until the reset is
+    handled. */
+void
+ohci_handle_bus_reset(struct ohci_controller *ohci)
+{
+  /* We have to clear ContextControl.run */
+  OHCI_REG(ohci, AsReqTrContextControlClear) = 1 << 15;
+  OHCI_REG(ohci, AsRspTrContextControlClear) = 1 << 15;
+  
+  /* Wait for active DMA to finish. (We don't do DMA... ) */
+  wait_loop(ohci, AsReqTrContextControlSet, ATactive, 0, 10);
+  wait_loop(ohci, AsRspTrContextControlSet, ATactive, 0, 10);
+  
+  /* Wait for completion of SelfID phase. */
+  wait_loop(ohci, IntEventSet, selfIDComplete, selfIDComplete, 1000);
+  OHCI_INFO("Bus reset complete. Clearing event bits.\n");
+  
+  /* We are done. Clear bus reset bit. */
+  OHCI_REG(ohci, IntEventClear) = busReset;
+  
+  /* Reset request filters. They are cleared on bus reset. */
+  OHCI_REG(ohci, AsReqFilterHiSet) = ohci->as_request_filter >> 32;
+  OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter && 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
+
+  
+  uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
+  OHCI_INFO("SelfID generation 0x%x, bytes 0x%x\n",
+	    (selfid_count >> 16) & 0xFF,
+	    ((selfid_count >> 2) & 0xFF) * 4);
+  OHCI_INFO("SelfID buf[0] = 0x%x\n", selfid_buf[0]);
+
+}
+
 void
 ohci_poll_events(struct ohci_controller *ohci)
 {
-  bool bus_reset_msg = true;
-
   while (1) {
     uint32_t intevent = OHCI_REG(ohci, IntEventSet); /* Unmasked event bitfield */
     
     if ((intevent & busReset) != 0) {
-      if (bus_reset_msg) {
-	OHCI_INFO("Bus reset!\n");
-	bus_reset_msg = false;
-      }
-    }
-    if ((intevent & selfIDComplete) != 0) {
-      OHCI_INFO("Bus reset complete. Clearing event bits.\n");
-      OHCI_REG(ohci, IntEventClear) = busReset | selfIDComplete;
-
-      bus_reset_msg = true;
-      /* XXX Bus reset complete. What now? */
+      OHCI_INFO("Bus reset!\n");
+      ohci_handle_bus_reset(ohci);
+    } else if ((intevent & postedWriteErr) != 0) {
+      OHCI_INFO("Posted Write Error\n");
+      OHCI_REG(ohci, IntEventClear) = postedWriteErr;
+    } else if ((intevent & unrecoverableError) != 0) {
+      OHCI_INFO("Unrecoverable Error\n");
+      OHCI_REG(ohci, IntEventClear) = unrecoverableError;
     }
 
-    wait(1);
+    // wait(1);
   }
 }
 

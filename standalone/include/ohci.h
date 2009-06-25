@@ -15,6 +15,10 @@ struct ohci_controller {
 
   uint8_t total_ports;
   bool enhanced_phy_map;
+
+  uint64_t as_request_filter;
+  uint64_t phy_request_filter;
+  
 };
 
 void    ohci_poll_events(struct ohci_controller *ohci);
