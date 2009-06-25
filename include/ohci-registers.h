@@ -91,6 +91,13 @@ enum phy_page {
   VENDOR_INFO = 1,
 };
 
+enum phy_port_info {
+  /* PHY 8 a.k.a. Register 0 */
+  PHY_PORT_DISABLED  = 1 << 0,
+  PHY_PORT_CONNECTED = 1 << 2,
+  PHY_PORT_CHILD     = 1 << 3,
+};
+
 #define AsReqTrContextBase           0x180
 #define AsReqTrContextControlSet     0x180
 #define AsReqTrContextControlClear   0x184

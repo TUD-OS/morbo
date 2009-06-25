@@ -12,9 +12,9 @@
 /* Constants */
 
 #define NEVER 0xFFFFFFFFUL
-#define RESET_TIMEOUT 100
-#define PHY_TIMEOUT   100
-#define MISC_TIMEOUT  100
+#define RESET_TIMEOUT 10000
+#define PHY_TIMEOUT   10000
+#define MISC_TIMEOUT  10000
 
 /* Globals */
 
@@ -123,7 +123,9 @@ phy_read(struct ohci_controller *ohci, uint8_t addr)
 {
   OHCI_REG(ohci, PhyControl) = PhyControl_Read(addr);
   wait_loop(ohci, PhyControl, PhyControl_ReadDone, PhyControl_ReadDone, PHY_TIMEOUT);
-  return PhyControl_ReadData(OHCI_REG(ohci, PhyControl));
+
+  uint8_t result = PhyControl_ReadData(OHCI_REG(ohci, PhyControl));
+  return result;
 }
 
 /** Write a OHCI PHY register.
@@ -135,7 +137,7 @@ static void
 phy_write(struct ohci_controller *ohci, uint8_t addr, uint8_t data)
 {
   OHCI_REG(ohci, PhyControl) = PhyControl_Write(addr, data);
-  wait_loop(ohci, PhyControl, PhyControl_WriteDone, PhyControl_WriteDone, PHY_TIMEOUT);
+  wait_loop(ohci, PhyControl, PhyControl_WriteDone, 0, PHY_TIMEOUT);
 }
 
 static void
@@ -145,7 +147,7 @@ phy_page_select(struct ohci_controller *ohci, enum phy_page page, uint8_t port)
   assert(port < 16, "bad port");
   assert(page <  7, "bad page");
 
-  phy_write(ohci, 2, (page << 5) | port);
+  phy_write(ohci, 7, (page << 5) | port);
 }
 
 /** Force a bus reset.
@@ -245,9 +247,10 @@ ohci_initialize(const struct pci_device *pci_dev,
   /* Enable LinkPower Status. It should be on already, but what the
      heck... If it is disabled, only some OHCI registers are
      accessible and we cannot communicate with the PHY. */
-  OHCI_INFO("Start SCLK.\n");
+  OHCI_INFO("Enable LPS.\n");
   OHCI_REG(ohci, HCControlSet) = HCControl_LPS;
   wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
+  OHCI_INFO("LPS is up.\n");
 
   /* LPS is up. We can now communicate with the PHY. Discover how many
      ports we have and whether this PHY supports the enhanced register
@@ -261,7 +264,21 @@ ohci_initialize(const struct pci_device *pci_dev,
 	    ohci->enhanced_phy_map ? "an" : "no");
 
   if (ohci->enhanced_phy_map) {
-    /*  */
+
+    /* Enable all ports. */
+    for (unsigned port = 0; port < ohci->total_ports; port++) {
+
+
+      phy_page_select(ohci, PORT_STATUS, port);
+
+      uint8_t reg0 = phy_read(ohci, 8);
+      if ((reg0 & PHY_PORT_DISABLED) != 0) {
+	OHCI_INFO("Enabling port %d.\n", port);
+	phy_write(ohci, 8, reg0 & ~PHY_PORT_DISABLED);
+      } else {
+	OHCI_INFO("Port %d is already enabled.\n", port);
+      }
+    }
   }
 
   /* Check if we are responsible for configuring IEEE1394a
@@ -274,13 +291,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   }
 
   // wait some time to let device enable the link
-  wait(50);
-
-  /* Phy dump */
-  /* XXX Reading PHY0 loops forever in wait_loop. Link probably needs to be up for that. */
-  for (unsigned i = 1; i < 4; i++) {
-    OHCI_INFO("phy[%d] = 0x%x\n", i, phy_read(ohci, i));
-  }
+  // wait(50);
 
   // reset Link Control register
   OHCI_REG(ohci, LinkControlClear) = 0xFFFFFFFF;
@@ -310,9 +321,10 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   /* enable link */
   OHCI_REG(ohci, HCControlSet) = HCControl_linkEnable;
-
   /* Wait for link to come up. */
   wait_loop(ohci, HCControlSet, HCControl_linkEnable, HCControl_linkEnable, MISC_TIMEOUT);
+  OHCI_INFO("Link is up.\n");
+
 
   // display link speed and max size of packets
   OHCI_INFO("Bus Options: 0x%x\n", OHCI_REG(ohci, BusOptions));
