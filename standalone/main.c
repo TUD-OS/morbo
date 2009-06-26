@@ -15,10 +15,9 @@
 
 /* TODO: Select OHCI if there is more than one. */
 
-
 /* Configuration */
 static bool be_verbose = true;
-static bool dont_enable_apic = false;
+static bool force_enable_apic = true;
 static bool keep_going = false;
 static bool do_wait = false;
 
@@ -42,6 +41,7 @@ parse_cmdline(const char *cmdline)
 
     if (strcmp(token, "noapic") == 0) {
       printf("Disabling APIC magic.\n");
+      force_enable_apic = false;
     } else if (strcmp(token, "quiet") == 0) {
       be_verbose = false;
     } else if (strcmp(token, "keepgoing") == 0) {
@@ -67,7 +67,7 @@ main(const struct mbi *mbi)
   parse_cmdline((const char *)mbi->cmdline);
 
   /* Check for APIC support */
-  if (!dont_enable_apic && !has_apic()) {
+  if (force_enable_apic && !has_apic()) {
 
     printf("Your CPU reports to have no APIC. Trying to enable it.\n");
     printf("Use the noapic parameter to disable this.\n");
