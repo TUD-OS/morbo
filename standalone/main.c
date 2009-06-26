@@ -32,7 +32,7 @@
 static bool be_verbose = true;
 static bool dont_enable_apic = false;
 static bool keep_going = false;
-
+static bool do_wait = false;
 
 void
 parse_cmdline(const char *cmdline)
@@ -59,6 +59,8 @@ parse_cmdline(const char *cmdline)
     } else if (strcmp(token, "keepgoing") == 0) {
       printf("Errors will be ignored. You obviously like playing risky.\n");
       keep_going = true;
+    } else if (strcmp(token, "wait") == 0) {
+      do_wait = true;
     } else {
       printf("Ingoring unrecognized argument: %s.\n", token);
     }
@@ -120,6 +122,12 @@ main(const struct mbi *mbi)
     printf("An error occured. But we continue anyway.\n");
   }
  no_error:
+
+  if (do_wait) {
+    printf("Waiting... (XXX No return from here... XXX)\n");
+    ohci_poll_events(&ohci);
+    /* XXX ohci_poll_events does not return yet. */
+  }
   
   /* Will not return */
   start_module(mbi);

@@ -350,8 +350,6 @@ ohci_initialize(const struct pci_device *pci_dev,
   OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(ohci, GUIDHi));
   OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(ohci, GUIDLo));
 
-  ohci_poll_events(ohci);
-
   return true;
 }
 
