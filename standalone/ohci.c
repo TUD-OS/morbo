@@ -368,6 +368,8 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   wait_loop(ohci, AsRspTrContextControlSet, ATactive, 0, 10);
   
   /* Wait for completion of SelfID phase. */
+  assert(OHCI_REG(ohci, LinkControlSet) & LinkControl_rcvSelfID,
+	 "selfID receive borken");
   wait_loop(ohci, IntEventSet, selfIDComplete, selfIDComplete, 1000);
   OHCI_INFO("Bus reset complete. Clearing event bits.\n");
   
@@ -381,12 +383,21 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
 
+  printf("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
+  printf("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
+  printf("PhyUpperBound %x\n", OHCI_REG(ohci, PhyUpperBound));
+
   
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
+  uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
   OHCI_INFO("SelfID generation 0x%x, bytes 0x%x\n",
 	    (selfid_count >> 16) & 0xFF,
-	    ((selfid_count >> 2) & 0xFF) * 4);
-  OHCI_INFO("SelfID buf[0] = 0x%x\n", selfid_buf[0]);
+	    selfid_words * 4);
+
+  for (unsigned i = 0; i < selfid_words; i++) {
+    assert(i < sizeof(selfid_buf)/sizeof(uint32_t), "buffer overflow");
+    OHCI_INFO("SelfID buf[0x%x] = 0x%x\n", i, selfid_buf[i]);
+  }
 
 }
 
