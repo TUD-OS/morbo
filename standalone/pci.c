@@ -3,6 +3,7 @@
  * \date    2006-10-25
  * \author  Bernhard Kauer <kauer@tudos.org>
  */
+/* Based on fulda. Original copyright: */
 /*
  * Copyright (C) 2006  Bernhard Kauer <kauer@tudos.org>
  * Technische Universitaet Dresden, Operating Systems Research Group

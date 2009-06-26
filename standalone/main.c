@@ -1,16 +1,4 @@
-/*
- * \brief   fulda - use ieee1394 for debugging.
- * \date    2007-04-19
- * \author  Bernhard Kauer <kauer@tudos.org>
- */
-/*
- * Copyright (C) 2007  Bernhard Kauer <kauer@tudos.org>
- * Technische Universitaet Dresden, Operating Systems Research Group
- *
- * This file is part of the FULDA package, which is distributed under
- * the  terms  of the  GNU General Public Licence 2.  Please see the
- * COPYING file for details.
- */
+/* -*- Mode: C -*- */
 
 #include <stddef.h>
 #include <stdbool.h>
