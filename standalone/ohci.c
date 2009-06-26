@@ -310,7 +310,7 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   // accept physical requests from all nodes in our local bus
   OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
-  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter && 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
 
   // allow access up to 0xffff00000000
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
@@ -378,7 +378,7 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   OHCI_REG(ohci, AsReqFilterHiSet) = ohci->as_request_filter >> 32;
   OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
   OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
-  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter && 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
 
   
