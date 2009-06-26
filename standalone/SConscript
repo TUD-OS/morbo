@@ -38,4 +38,5 @@ final = fenv.Program('morbo',
 
 Depends(final, 'morbo.ld')
 
+Install('#tftp', [ final ])
 # EOF
