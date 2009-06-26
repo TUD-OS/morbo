@@ -291,9 +291,10 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   /* Check if we are responsible for configuring IEEE1394a
      enhancements. */
-  if (OHCI_REG(ohci, HCControl_programPhyEnable) & HCControl_programPhyEnable) {
-    OHCI_INFO("Configuring IEEE1394a enhancements.\n");
-    OHCI_INFO(" -> not implemented...\n");
+  if (OHCI_REG(ohci, HCControlSet) & HCControl_programPhyEnable) {
+    OHCI_INFO("Enabling IEEE1394a enhancements.\n");
+    OHCI_REG(ohci, HCControlSet) = HCControl_aPhyEnhanceEnable;
+
   } else {
     OHCI_INFO("IEEE1394a enhancements are already configured.\n");
   }
