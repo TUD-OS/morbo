@@ -326,6 +326,9 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   // allow access up to 0xffff00000000
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
+  if (OHCI_REG(ohci, PhyUpperBound) == 0) {
+    OHCI_INFO("PhyUpperBound doesn't seem to be implemented. (No cause for alarm.)\n");
+  }
 
   /* Set SelfID buffer */
   selfid_buf[0] = 0xDEADBEEF;		/* error checking */
