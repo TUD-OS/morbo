@@ -394,12 +394,9 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
   OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
   OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
-  OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
 
   printf("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
   printf("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
-  printf("PhyUpperBound %x\n", OHCI_REG(ohci, PhyUpperBound));
-
   
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
   uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
