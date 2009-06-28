@@ -58,9 +58,7 @@ int
 main(const struct mbi *mbi)
 {
   serial_init();
-
-  out_char('\n');
-  out_info(version_str);
+  printf("\n%s\n", version_str);
 
   /* Command line parsing */
   parse_cmdline((const char *)mbi->cmdline);
