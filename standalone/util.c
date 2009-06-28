@@ -50,15 +50,16 @@ void
 __exit(unsigned status)
 {
   const unsigned delay = 30;
-  out_char('\n');
-  out_description("Exit with status ", status);
 
-  out_string("Rebooting...\n");
+  printf("\nExit with status %u.\n"
+         "Rebooting...\n");
+
   for (unsigned i=0; i<delay;i++) {
     wait(1000);
     out_char('.');
   }
-  out_string("-> OK, reboot now!\n");
+
+  printf("-> OK, reboot now!\n");
   reboot();
   /* NOT REACHED */
 }
@@ -72,28 +73,8 @@ out_char(unsigned value)
 {
   serial_send(value);
 
-#ifdef VGAIO
-#define BASE(ROW) ((unsigned short *) (0xb8000+ROW*160))
-  static unsigned int col;
-  if (value!='\n')
-    {
-      unsigned short *p = BASE(24)+col;
-      *p = 0x0f00 | value;
-      col++;
-    }
-  if (col>=80 || value == '\n')
-    {
-      serial_send('\r');
-
-      col=0;
-      unsigned short *p=BASE(0);
-      memcpy(p, p+80, 24*160);
-      memset(BASE(24), 0, 160);
-    }
-#else  /* No VGAIO */
   if (value == '\n')
     serial_send('\r');
-#endif
 
   return value;
 }
@@ -135,11 +116,7 @@ out_hex(unsigned value, unsigned bitlen)
 void
 out_description(const char *prefix, unsigned int value)
 {
-  out_string(message_label);
-  out_string(prefix);
-  out_char(' ');
-  out_hex(value, 0);
-  out_char('\n');
+  printf("%s%s %x\n", message_label, prefix, value);
 }
 
 /**
@@ -148,7 +125,5 @@ out_description(const char *prefix, unsigned int value)
 void
 out_info(const char *msg)
 {
-  out_string(message_label);
-  out_string(msg);
-  out_char('\n');
+  printf("%s%s\n", message_label, msg);
 }
