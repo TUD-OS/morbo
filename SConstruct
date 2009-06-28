@@ -10,7 +10,8 @@ def CheckCommand(context, cmd):
 # Construct freestanding environment
 freestanding_env = Environment()
 
-freestanding_env['CFLAGS'] = "-Os -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror  -minline-all-stringops"
+freestanding_env['CFLAGS']  = "-Os -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Werror"
+freestanding_env['CFLAGS'] += " -minline-all-stringops -mregparm=3"
 freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
 freestanding_env['LINK'] = "ld"
 freestanding_env['AS'] = "yasm"

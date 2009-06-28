@@ -16,6 +16,8 @@
 /* TODO: Select OHCI if there is more than one. */
 
 /* Configuration */
+static bool multiboot_loader = false;
+
 static bool be_verbose = true;
 static bool force_enable_apic = true;
 static bool keep_going = false;
@@ -55,13 +57,19 @@ parse_cmdline(const char *cmdline)
 }
 
 int
-main(const struct mbi *mbi)
+main(uint32_t magic, const struct mbi *mbi)
 {
+  multiboot_loader = (magic == MBI_MAGIC);
+
   serial_init();
   printf("\n%s\n", version_str);
 
   /* Command line parsing */
-  parse_cmdline((const char *)mbi->cmdline);
+  if (multiboot_loader) {
+    parse_cmdline((const char *)mbi->cmdline);
+  } else {
+    printf("Not loaded by Multiboot-compliant loader. No command line parsing.\n");
+  }
 
   /* Check for APIC support */
   if (force_enable_apic && !has_apic()) {

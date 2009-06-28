@@ -67,8 +67,6 @@ char *strncpy(char * __restrict dst, const char * __restrict src, size_t n);
       }							\
   }
 
-
-
 /**
  * lowlevel output functions
  */

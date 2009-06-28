@@ -14,9 +14,8 @@ _mbheader:
 
 _start:
         lea     esp, [_stack]
-        push    ebx
+        mov     edx, ebx
         call    main
-        push    eax
         call    __exit
 
 
