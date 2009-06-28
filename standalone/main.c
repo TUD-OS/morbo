@@ -24,12 +24,11 @@ static bool do_wait = false;
 void
 parse_cmdline(const char *cmdline)
 {
-  const size_t max_cmdline = 512;
-  char cmdline_buf[max_cmdline];
+  char cmdline_buf[256];
   char *token;
   unsigned i;
 
-  strncpy(cmdline_buf, cmdline, max_cmdline);
+  strncpy(cmdline_buf, cmdline, sizeof(cmdline_buf));
   
   for (token = strtok(cmdline_buf, " "), i = 0;
        token != NULL;

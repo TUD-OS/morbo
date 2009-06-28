@@ -8,9 +8,7 @@ fenv['CPPPATH'] = ["include/"]
 fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
 
 cutil = fenv.StaticLibrary('cutil',
-                           [ 'strcmp.c',
-                             'strlen.c',
-                             'strncpy.c',
+                           [ 'strncpy.c',
                              'strtok.c',
                              'strtol.c',
                              'strtoll.c',
