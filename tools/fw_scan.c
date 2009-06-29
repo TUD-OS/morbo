@@ -18,9 +18,11 @@
 
 
 /* Libraries */
+#include <gc.h>
 #include <slang.h>
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
+#include <libelf/gelf.h>
 
 /* Our own stuff */
 #include <ohci.h>
@@ -57,6 +59,8 @@ static const char *status_names[] = { "UNDEF",
 				      "DUMB" };
 
 struct node_info_t {
+  struct node_info_t *next;
+
   enum {
     UNDEF = 0,
     BROKEN = 1,
@@ -64,10 +68,18 @@ struct node_info_t {
     RUN = 3,
     DUMB = 4,
   } status;
+  
+  unsigned node_no;
+
   bool bootable;
+  bool busmaster;
+  bool irm;
+  bool me;
+  uint64_t guid;
+
   uint32_t multiboot_ptr;	/* Pointer to pointer */
   uint32_t kernel_entry_point;	/* Pointer to kernel_entry_point uint32_t */
-  uint64_t guid;
+
   char info_str[32];
 };
 
@@ -95,20 +107,27 @@ static void sigint_handler (int sig)
   SLsignal (SIGINT, sigwinch_handler);
 }
 
-static void
-parse_config_rom(nodeid_t target, struct node_info_t *info)
+static struct node_info_t *
+collect_node_info(unsigned target_no)
 {
-  static quadlet_t crom_buf[32];
+  assert(target_no < 63);
 
-  info->status = UNDEF;
-  info->bootable = false;
+  struct node_info_t *info = GC_malloc(sizeof(struct node_info_t));
+  quadlet_t crom_buf[32];
+
+  info->status    = UNDEF;
+  info->node_no   = target_no;
+  info->bootable  = false;	/* Is set later */
+  info->busmaster = (target_no == raw1394_get_nodecount(fw_handle)-1);
+  info->irm       = (target_no == NODE_NO(raw1394_get_irm_id(fw_handle)));
+  info->me        = (target_no == NODE_NO(raw1394_get_local_id(fw_handle)));
 
   for (unsigned word = 0; word < (sizeof(crom_buf)/4); word++) {
     const unsigned max_tries = 5;
     unsigned tries = 0;
   again: {}
 
-    int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
+    int ret = raw1394_read(fw_handle, target_no | LOCAL_BUS, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
 			   sizeof(quadlet_t), crom_buf + word);
     if (ret != 0) {
       /* Retry up to max_tries times. We get spurious
@@ -121,7 +140,7 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
 	break;
       };
       info->status = BROKEN;
-      return;
+      goto done;
     }
 
     crom_buf[word] = ntohl(crom_buf[word]);
@@ -129,10 +148,10 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
     if (word == 0) {
       if (crom_buf[word] == 0) {
 	info->status = INIT;
-	return;
+	goto done;
       } else if ((crom_buf[word] >> 24) == 1) {
 	info->status = DUMB;
-	return;
+	goto done;
       }
     } else {
       info->status = RUN;
@@ -148,14 +167,14 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
 
   /* Interpret large values as garbage. */
   if (bus_info_length > 32)
-    return;
+    goto done;
 
   uint32_t *root_dir = &crom_buf[bus_info_length + 1];
   unsigned root_dir_length = root_dir[0] >> 16;
   
   /* Interpret large values as garbage. */
   if (root_dir_length > 32)
-    return;
+    goto done;
 
   bool vendor_ok = false;
   bool model_ok  = false;
@@ -173,7 +192,7 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
       {
 	unsigned text_off = i + (root_dir[i] & 0xFFFFFF);
 	if (text_off > 32)
-	  return;
+	  break;
 
 	unsigned text_length = root_dir[text_off] >> 16;
 
@@ -187,7 +206,7 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
       {
 	unsigned info_off = i + (root_dir[i] & 0xFFFFFF);
 	if (info_off > 32)
-	  return;
+	  break;;
 	
 	info->multiboot_ptr = root_dir[info_off + 1];
 	info->kernel_entry_point = root_dir[info_off + 2];
@@ -202,52 +221,67 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
 
   if (vendor_ok && model_ok && boot_info)
     info->bootable = true;
+
+ done:
+  return info;
+}
+
+static struct node_info_t *
+collect_all_info(int *node_count)
+{
+  struct node_info_t *info = NULL;
+  unsigned nodes = raw1394_get_nodecount(fw_handle);
+
+  for (unsigned i = nodes; i > 0; i--) {
+    struct node_info_t *new = collect_node_info(i - 1);
+    new->next = info;
+    info = new;
+  }
+
+  *node_count = nodes;
+
+  return info;
 }
 
 /* Generate the overview list. This is the default screen. */
 static void
-do_overview_screen(void)
+do_overview_screen(struct node_info_t *info)
 {
   SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
   
   /* Print node info. */
-  nodes = raw1394_get_nodecount(fw_handle);
-  nodeid_t local_id = raw1394_get_local_id(fw_handle);
-  nodeid_t irm_id = raw1394_get_irm_id(fw_handle);
-  nodeid_t max_disp = MIN(nodes, SLtt_Screen_Rows - 1);
-  
-  for (unsigned i = 0; i < max_disp; i++) {
-    bool myself = (i == NODE_NO(local_id));
-    bool root   = (i == nodes - 1);
-    bool irm    = (i == NODE_NO(irm_id));
-    
-    /* Get node info */
-    struct node_info_t info;
-    nodeid_t target = LOCAL_BUS | i;
-    
-    parse_config_rom(target, &info);
+  unsigned pos = 0;
+  while ((pos < (SLtt_Screen_Rows - 1)) && info) {
 
-    /* Finished collecting information. Now display it. */
+    SLsmg_gotorc(pos, 0);
+    SLsmg_set_color(info->me ? COLOR_MYSELF : ((info->status == BROKEN) ? COLOR_BROKEN : COLOR_NORMAL));
 
-    SLsmg_gotorc(i, 0);
-    SLsmg_set_color(myself ? COLOR_MYSELF : ((info.status == BROKEN) ? COLOR_BROKEN : COLOR_NORMAL));
-
-    SLsmg_printf("%3u %c%c | %016llx %4s %4s | %s", i,
-		 root ? 'R' : ' ',
-		 irm ?  'I' : ' ',
-		 (info.status == RUN) ? info.guid : 0LLU,
-		 status_names[info.status],
-		 (info.bootable ? "BOOT" : ""),
-		 (info.bootable ? info.info_str : "")
+    SLsmg_printf("%3u %c%c | %016llx %4s %4s | %s",
+		 info->node_no,
+		 info->busmaster ? 'B' : ' ',
+		 info->irm ?  'I' : ' ',
+		 (info->status == RUN) ? info->guid : 0LLU,
+		 status_names[info->status],
+		 (info->bootable ? "BOOT" : ""),
+		 (info->bootable ? info->info_str : "")
 		 );
 
+    if (info->bootable) {
+      SLsmg_printf(" | pEntry %08lx MBI %08lx", info->kernel_entry_point, info->multiboot_ptr);
+    }
+
     SLsmg_erase_eol();
+
+    pos++;
+    info = info->next;
   }
 }
 
 int
 main(int argc, char **argv)
 {
+  GC_INIT();
+
   /* Command line parsing */
   int opt;
 
@@ -272,6 +306,13 @@ main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
+  if (elf_version(EV_CURRENT) == EV_NONE ) {
+    /* library out of date */
+    fprintf(stderr, "Elf library out of date!n");
+    exit(EXIT_FAILURE);
+  }
+
+
   /* Set up slang UI library. */
   SLsignal (SIGWINCH, sigwinch_handler);
   SLsignal (SIGINT, sigint_handler);
@@ -292,6 +333,9 @@ main(int argc, char **argv)
   
   /* Main loop */
   while (!done) {
+    static enum { OVERVIEW, BOOT } state = OVERVIEW;
+    unsigned boot_no;
+
     if (screen_size_changed) {
       SLtt_get_screen_size ();
       SLsmg_reinit_smg ();
@@ -299,7 +343,16 @@ main(int argc, char **argv)
       /* Redraw... */
     }
 
-    do_overview_screen();
+    struct node_info_t *info = collect_all_info(&nodes);
+
+    switch (state) {
+    case OVERVIEW:
+      do_overview_screen(info);
+      break;
+    case BOOT:
+      state = OVERVIEW;
+      break;
+    }
 
     /* Clear output from last iteration. */
     SLsmg_set_color(COLOR_NORMAL);
@@ -334,7 +387,8 @@ main(int argc, char **argv)
 
     /* Process user input */
     while (SLang_input_pending(0)) {
-      switch (SLang_getkey()) {
+      int key = SLang_getkey();
+      switch (key) {
       case 'q':
 	done = true;
 	break;
@@ -342,7 +396,12 @@ main(int argc, char **argv)
 	raw1394_reset_bus(fw_handle);
 	break;
       default:
-	/* IGNORE */
+	/* Digits */
+	if ((key >= '0') && (key <= '9')) {
+	  boot_no = key - '0';
+	  state = BOOT;
+	}
+
 	break;
       }
     }
