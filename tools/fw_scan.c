@@ -1,19 +1,30 @@
 /* -*- Mode: C -*- */
 
+/* C */
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 
+/* "POSIX" */
+#include <errno.h>
 #include <getopt.h>
 #include <poll.h>
 #include <unistd.h>
 #include <signal.h>
+#include <arpa/inet.h>		/* for ntohl */
 
+
+/* Libraries */
 #include <slang.h>
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
 
+/* Our own stuff */
 #include <ohci.h>
+#include <morbo.h>
 
 /* Constants */
 
@@ -39,6 +50,26 @@ static int port = 0;		/* Default port is 0. Should be fine
 static raw1394handle_t fw_handle;
 static int nodes = 0;
 
+static const char *status_names[] = { "UNDEF",
+				      "BROKEN",
+				      "INIT",
+				      "RUN",
+				      "DUMB" };
+
+struct node_info_t {
+  enum {
+    UNDEF = 0,
+    BROKEN = 1,
+    INIT = 2,
+    RUN = 3,
+    DUMB = 4,
+  } status;
+  bool bootable;
+  uint32_t multiboot_ptr;	/* Pointer to pointer */
+  uint32_t kernel_entry_point;	/* Pointer to kernel_entry_point uint32_t */
+  char info_str[32];
+};
+
 /* Implementation */
 
 static void sigwinch_handler (int sig)
@@ -63,6 +94,112 @@ static void sigint_handler (int sig)
   SLsignal (SIGINT, sigwinch_handler);
 }
 
+static void
+parse_config_rom(nodeid_t target, struct node_info_t *info)
+{
+  static quadlet_t crom_buf[32];
+
+  info->status = UNDEF;
+  info->bootable = false;
+
+  for (unsigned word = 0; word < (sizeof(crom_buf)/4); word++) {
+    const unsigned max_tries = 5;
+    unsigned tries = 0;
+  again: {}
+
+    int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
+			   sizeof(quadlet_t), crom_buf + word);
+    if (ret != 0) {
+      /* Retry up to max_tries times. We get spurious
+	 EGAIN/EWOULDBLOCK (even if fw_handle should be set to
+	 blocking mode) */
+      switch (errno) {
+      case EAGAIN:
+	if (tries++ < max_tries)
+	  goto again;
+	break;
+      };
+      info->status = BROKEN;
+      return;
+    }
+
+    crom_buf[word] = ntohl(crom_buf[word]);
+
+    if (word == 0) {
+      if (crom_buf[word] == 0) {
+	info->status = INIT;
+	return;
+      } else if ((crom_buf[word] >> 24) == 1) {
+	info->status = DUMB;
+	return;
+      }
+    } else {
+      info->status = RUN;
+    }
+  }
+  
+  /* Config ROM obtained. Check for Morbo. */
+  /* XXX Check CRCs and bounds */
+  unsigned bus_info_length = crom_buf[0] >> 24;
+
+  /* Interpret large values as garbage. */
+  if (bus_info_length > 32)
+    return;
+
+  uint32_t *root_dir = &crom_buf[bus_info_length + 1];
+  unsigned root_dir_length = root_dir[0] >> 16;
+  
+  /* Interpret large values as garbage. */
+  if (root_dir_length > 32)
+    return;
+
+  bool vendor_ok = false;
+  bool model_ok  = false;
+  bool boot_info = false;
+
+  for (unsigned i = 1; i <= root_dir_length; i++) {
+    switch (root_dir[i] >> 24) {
+    case 0x03:			/* Vendor ID */
+      vendor_ok = (root_dir[i] & 0xFFFFFF) == MORBO_VENDOR_ID;
+      break;
+    case 0x17:			/* Model ID */
+      model_ok  = (root_dir[i] & 0xFFFFFF) == MORBO_MODEL_ID;
+      break;
+    case 0x81:			/* Text descriptor */
+      {
+	unsigned text_off = i + (root_dir[i] & 0xFFFFFF);
+	if (text_off > 32)
+	  return;
+
+	unsigned text_length = root_dir[text_off] >> 16;
+
+	memset(info->info_str, 0, sizeof(info->info_str));
+	strncpy(info->info_str, (char *)(&root_dir[text_off + 3]),
+		MIN(sizeof(info->info_str),
+		    text_length*4));
+      }
+      break;
+    case MORBO_INFO_DIR:
+      {
+	unsigned info_off = i + (root_dir[i] & 0xFFFFFF);
+	if (info_off > 32)
+	  return;
+	
+	info->multiboot_ptr = root_dir[info_off + 1];
+	info->kernel_entry_point = root_dir[info_off + 2];
+	boot_info = true;
+      }
+      break;
+    default:
+      /* Unknown entry. What now? Ignoring...*/
+      break;
+    }
+  }
+
+  if (vendor_ok && model_ok && boot_info)
+    info->bootable = true;
+}
+
 /* Generate the overview list. This is the default screen. */
 static void
 do_overview_screen(void)
@@ -80,49 +217,23 @@ do_overview_screen(void)
     bool root   = (i == nodes - 1);
     bool irm    = (i == NODE_NO(irm_id));
     
-    /* Get CROM. */
-    bool broken = false;
-    bool info_available = false;
-    char *status = "UNDEF";
-    static quadlet_t crom_buf[1024/4]; /* Max 1K CROM */
+    /* Get node info */
+    struct node_info_t info;
     nodeid_t target = LOCAL_BUS | i;
-
-    for (unsigned word = 0; word < 5; word++) {
-      int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
-			     sizeof(quadlet_t), crom_buf + word);
-	
-      if (ret != 0) {
-	broken = true;
-	break;
-      }
-
-      if (word == 0) {
-	if (crom_buf[word] == 0) {
-	  status = "INIT";
-	  break;
-	} else if ((crom_buf[word] >> 24) == 1) {
-	  status = "DUMB";	/* Vendor CROM */
-	  break;
-	}
-      } else {
-	status = "RUN";
-	info_available = true;
-      }
-
-    }
-      
+    
+    parse_config_rom(target, &info);
 
     /* Finished collecting information. Now display it. */
 
     SLsmg_gotorc(i, 0);
-    SLsmg_set_color(myself ? COLOR_MYSELF : (broken ? COLOR_BROKEN : COLOR_NORMAL));
+    SLsmg_set_color(myself ? COLOR_MYSELF : ((info.status == BROKEN) ? COLOR_BROKEN : COLOR_NORMAL));
 
-    SLsmg_printf("%3u %c%c | %6s %8x %8x |", i,
+    SLsmg_printf("%3u %c%c | %6s %4s | %s", i,
 		 root ? 'R' : ' ',
 		 irm ?  'I' : ' ',
-		 status,
-		 broken ? 0xDEAD : crom_buf[0],
-		 (info_available && !broken) ? crom_buf[1] : 0xDEAD
+		 status_names[info.status],
+		 (info.bootable ? "BOOT" : ""),
+		 (info.bootable ? info.info_str : "")
 		 );
 
     SLsmg_erase_eol();

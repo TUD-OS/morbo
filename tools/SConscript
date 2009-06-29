@@ -5,6 +5,7 @@ Import('fw_env')
 henv = fw_env.Clone()
 
 elf_henv = henv.Clone()
+elf_henv['CPPPATH'] += ['#include']
 elf_henv['LIBS'] += ['elf']
 
 binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
