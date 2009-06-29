@@ -37,6 +37,7 @@ static int port = 0;		/* Default port is 0. Should be fine
 				   for most. */
 
 static raw1394handle_t fw_handle;
+static int nodes = 0;
 
 /* Implementation */
 
@@ -60,6 +61,72 @@ static void sigint_handler (int sig)
   }
 
   SLsignal (SIGINT, sigwinch_handler);
+}
+
+/* Generate the overview list. This is the default screen. */
+static void
+do_overview_screen(void)
+{
+  SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
+  
+  /* Print node info. */
+  nodes = raw1394_get_nodecount(fw_handle);
+  nodeid_t local_id = raw1394_get_local_id(fw_handle);
+  nodeid_t irm_id = raw1394_get_irm_id(fw_handle);
+  nodeid_t max_disp = MIN(nodes, SLtt_Screen_Rows - 1);
+  
+  for (unsigned i = 0; i < max_disp; i++) {
+    bool myself = (i == NODE_NO(local_id));
+    bool root   = (i == nodes - 1);
+    bool irm    = (i == NODE_NO(irm_id));
+    
+    /* Get CROM. */
+    bool broken = false;
+    bool info_available = false;
+    char *status = "UNDEF";
+    static quadlet_t crom_buf[1024/4]; /* Max 1K CROM */
+    nodeid_t target = LOCAL_BUS | i;
+
+    for (unsigned word = 0; word < 5; word++) {
+      int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
+			     sizeof(quadlet_t), crom_buf + word);
+	
+      if (ret != 0) {
+	broken = true;
+	break;
+      }
+
+      if (word == 0) {
+	if (crom_buf[word] == 0) {
+	  status = "INIT";
+	  break;
+	} else if ((crom_buf[word] >> 24) == 1) {
+	  status = "DUMB";	/* Vendor CROM */
+	  break;
+	}
+      } else {
+	status = "RUN";
+	info_available = true;
+      }
+
+    }
+      
+
+    /* Finished collecting information. Now display it. */
+
+    SLsmg_gotorc(i, 0);
+    SLsmg_set_color(myself ? COLOR_MYSELF : (broken ? COLOR_BROKEN : COLOR_NORMAL));
+
+    SLsmg_printf("%3u %c%c | %6s %8x %8x |", i,
+		 root ? 'R' : ' ',
+		 irm ?  'I' : ' ',
+		 status,
+		 broken ? 0xDEAD : crom_buf[0],
+		 (info_available && !broken) ? crom_buf[1] : 0xDEAD
+		 );
+
+    SLsmg_erase_eol();
+  }
 }
 
 int
@@ -116,66 +183,7 @@ main(int argc, char **argv)
       /* Redraw... */
     }
 
-    SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
-
-    /* Print node info. */
-    int nodes = raw1394_get_nodecount(fw_handle);
-    nodeid_t local_id = raw1394_get_local_id(fw_handle);
-    nodeid_t irm_id = raw1394_get_irm_id(fw_handle);
-    nodeid_t max_disp = MIN(nodes, SLtt_Screen_Rows - 1);
-
-    for (unsigned i = 0; i < max_disp; i++) {
-      bool myself = (i == NODE_NO(local_id));
-      bool root   = (i == nodes - 1);
-      bool irm    = (i == NODE_NO(irm_id));
-
-      /* Get CROM. */
-      bool broken = false;
-      bool info_available = false;
-      char *status = "UNDEF";
-      static quadlet_t crom_buf[1024/4]; /* Max 1K CROM */
-      nodeid_t target = LOCAL_BUS | i;
-
-      for (unsigned word = 0; word < 5; word++) {
-	int ret = raw1394_read(fw_handle, target, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
-			       sizeof(quadlet_t), crom_buf + word);
-	
-	if (ret != 0) {
-	  broken = true;
-	  break;
-	}
-
-	if (word == 0) {
-	  if (crom_buf[word] == 0) {
-	    status = "INIT";
-	    break;
-	  } else if ((crom_buf[word] >> 24) == 1) {
-	    status = "DUMB";	/* Vendor CROM */
-	    break;
-	  }
-	} else {
-	  status = "RUN";
-	  info_available = true;
-	}
-
-      }
-      
-
-      /* Finished collecting information. Now display it. */
-
-      SLsmg_gotorc(i, 0);
-      SLsmg_set_color(myself ? COLOR_MYSELF : (broken ? COLOR_BROKEN : COLOR_NORMAL));
-
-      SLsmg_printf("%3u %c%c | %6s %8x %8x |", i,
-		   root ? 'R' : ' ',
-		   irm ?  'I' : ' ',
-		   status,
-		   broken ? 0xDEAD : crom_buf[0],
-		   (info_available && !broken) ? crom_buf[1] : 0xDEAD
-		   );
-
-      SLsmg_erase_eol();
-    }
+    do_overview_screen();
 
     /* Clear output from last iteration. */
     SLsmg_set_color(COLOR_NORMAL);

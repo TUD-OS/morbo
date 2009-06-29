@@ -4,10 +4,13 @@ Import('fw_env')
 
 henv = fw_env.Clone()
 
+elf_henv = henv.Clone()
+elf_henv['LIBS'] += ['elf']
+
 binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
              henv.Program('fw_peek', ['fw_peek.c']),
              henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
-             henv.Program('fw_scan', ['fw_scan.c']),
+             elf_henv.Program('fw_scan', ['fw_scan.c']),
              ]
 
 Install('#bin', binaries)
