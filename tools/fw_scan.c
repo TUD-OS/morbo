@@ -268,7 +268,7 @@ do_overview_screen(struct node_info_t *info)
 		 );
 
     if (info->bootable) {
-      SLsmg_printf(" | pEntry %08lx MBI %08lx", info->kernel_entry_point, info->multiboot_ptr);
+      SLsmg_printf(" | pEntry %08x MBI %08x", info->kernel_entry_point, info->multiboot_ptr);
     }
 
     SLsmg_erase_eol();
