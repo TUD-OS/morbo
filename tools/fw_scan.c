@@ -27,6 +27,7 @@
 /* Our own stuff */
 #include <ohci.h>
 #include <morbo.h>
+#include <mbi.h>
 
 /* Constants */
 
@@ -277,6 +278,41 @@ do_overview_screen(struct node_info_t *info)
   }
 }
 
+static void
+do_boot_screen(struct node_info_t *boot_node_info)
+{
+  nodeid_t node = boot_node_info->node_no | LOCAL_BUS;
+  uint32_t mbi_ptr;
+  struct mbi mbi;
+
+  SLsmg_gotorc(0, 0);
+  SLsmg_Newline_Behavior = SLSMG_NEWLINE_SCROLLS;
+
+  int res = raw1394_read(fw_handle, node, boot_node_info->multiboot_ptr,
+			 sizeof(uint32_t), &mbi_ptr);
+  if (res == -1) {
+    SLsmg_printf("1 errno %d\n", errno);
+    goto done;
+  }
+
+  SLsmg_printf("mbi @ 0x%x\n", mbi_ptr);
+
+  res = raw1394_read(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+		     (quadlet_t *)&mbi);
+  if (res == -1) {
+    SLsmg_printf("2 errno %d\n", errno);
+    goto done;
+  }
+
+  SLsmg_printf("flags %x", mbi.flags);
+
+ done:
+  SLsmg_erase_eol();
+
+  SLsmg_refresh();
+  sleep(3);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -350,6 +386,15 @@ main(int argc, char **argv)
       do_overview_screen(info);
       break;
     case BOOT:
+      for (struct node_info_t *cur = info; cur != NULL; cur = cur->next) {
+	if (cur->node_no == boot_no) {
+	  
+	  if (!cur->bootable)
+	    break;
+	  
+	  do_boot_screen(cur);
+	}
+      }
       state = OVERVIEW;
       break;
     }
