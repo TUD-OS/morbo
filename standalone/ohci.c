@@ -13,6 +13,8 @@
 
 #include <stdbool.h>
 
+#include <morbo.h>
+
 #include <util.h>
 #include <ohci.h>
 #include <ohci-registers.h>
@@ -56,8 +58,7 @@ static void
 ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
   /* Initialize with zero */
-  for (unsigned i = 0; i < 0x100; i++) 
-    crom->field[i] = 0;
+  memset(crom, 0, sizeof(ohci_config_rom_t));
 
   /* Copy the first quadlets */
   crom->field[1] = OHCI_REG(ohci, BusID);
@@ -72,23 +73,30 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
   out_description("GUID_hi:", OHCI_REG(ohci, GUIDHi));
   out_description("GUID_lo:", OHCI_REG(ohci, GUIDLo));
 
-  /* Config ROM is 4 bytes. Protect 4 bytes by CRC. */
+  /* Protect 4 words by CRC. */
   crom->field[0] = 0x04040000 | crc16(&(crom->field[1]), 4);
 
   /* Now we can generate a root directory */
 
-  crom->field[5] = 1 << 16;   /* 1 word follow. Put CRC here later. */
-  crom->field[6] = 0x81000001;  /* Module_Vendor_ID? */
-  crom->field[5] |= crc16(&(crom->field[6]), 1);
+  crom->field[5] = 3 << 16;   /* 2 words follow. Put CRC here later. */
+  crom->field[6] = 0x03 << 24 | MORBO_VENDOR_ID; /* Immediate */
+  crom->field[7] = 0x17 << 24 | MORBO_MODEL_ID;	 /* Immediate */
+  crom->field[8] = 0x81 << 24 | 2;		 /* Text descriptor */
+  crom->field[9] = MORBO_INFO_DIR << 24 | 8;	 /* Leaf */
+  crom->field[5] |= crc16(&(crom->field[6]), 4);
 
-  crom->field[7] = 0x0006 << 16; /* 6 */
-  crom->field[8] = 0;
-  crom->field[9] = 0;
-  crom->field[10] = 'Morb';
-  crom->field[11] = 'o - ';
-  crom->field[12] = 'OHCI';
-  crom->field[13] = '  v0';
-  crom->field[7] |= crc16(&(crom->field[8]), 6);
+  crom->field[10] = 0x0006 << 16; /* 6 words follow */
+  crom->field[11] = 0;
+  crom->field[12] = 0;
+  crom->field[13] = 'Morb';
+  crom->field[14] = 'o - ';
+  crom->field[15] = 'OHCI';
+  crom->field[16] = '  v1';
+  crom->field[10] |= crc16(&(crom->field[11]), 6);
+
+  crom->field[17] = 0x001 << 16; /* 1 words follow */
+  crom->field[18] = (uint32_t)&multiboot_info; /* Pointer to pointer to multiboot info */
+  crom->field[17] |= crc16(&(crom->field[18]), 1);
 
 }
 
@@ -414,21 +422,17 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 void
 ohci_poll_events(struct ohci_controller *ohci)
 {
-  while (1) {
-    uint32_t intevent = OHCI_REG(ohci, IntEventSet); /* Unmasked event bitfield */
+  uint32_t intevent = OHCI_REG(ohci, IntEventSet); /* Unmasked event bitfield */
     
-    if ((intevent & busReset) != 0) {
-      OHCI_INFO("Bus reset!\n");
-      ohci_handle_bus_reset(ohci);
-    } else if ((intevent & postedWriteErr) != 0) {
-      OHCI_INFO("Posted Write Error\n");
-      OHCI_REG(ohci, IntEventClear) = postedWriteErr;
-    } else if ((intevent & unrecoverableError) != 0) {
-      OHCI_INFO("Unrecoverable Error\n");
-      OHCI_REG(ohci, IntEventClear) = unrecoverableError;
-    }
-
-    // wait(1);
+  if ((intevent & busReset) != 0) {
+    OHCI_INFO("Bus reset!\n");
+    ohci_handle_bus_reset(ohci);
+  } else if ((intevent & postedWriteErr) != 0) {
+    OHCI_INFO("Posted Write Error\n");
+    OHCI_REG(ohci, IntEventClear) = postedWriteErr;
+  } else if ((intevent & unrecoverableError) != 0) {
+    OHCI_INFO("Unrecoverable Error\n");
+    OHCI_REG(ohci, IntEventClear) = unrecoverableError;
   }
 }
 

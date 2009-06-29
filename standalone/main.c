@@ -15,9 +15,13 @@
 
 /* TODO: Select OHCI if there is more than one. */
 
-/* Configuration */
+/* Globals */
 static bool multiboot_loader = false;
 
+volatile const struct mbi *multiboot_info = 0;
+volatile uint32_t kernel_entry_point = 0;
+
+/* Configuration (set by command line parser) */
 static bool be_verbose = true;
 static bool force_enable_apic = true;
 static bool keep_going = false;
@@ -66,6 +70,7 @@ main(uint32_t magic, const struct mbi *mbi)
 
   /* Command line parsing */
   if (multiboot_loader) {
+    multiboot_info = mbi;
     parse_cmdline((const char *)mbi->cmdline);
   } else {
     printf("Not loaded by Multiboot-compliant loader. No command line parsing.\n");
@@ -118,13 +123,14 @@ main(uint32_t magic, const struct mbi *mbi)
 
   if (do_wait) {
     printf("Waiting... (XXX No return from here... XXX)\n");
-    ohci_poll_events(&ohci);
-    /* XXX ohci_poll_events does not return yet. */
+    while (!kernel_entry_point) {
+      ohci_poll_events(&ohci);
+    }
   }
   
   /* Will not return */
-  start_module(mbi);
-  
-  /* Not reached */
-  return 0;
+  if (!kernel_entry_point)
+    return start_module(mbi);
+  else
+    jmp_multiboot((const struct mbi *)multiboot_info, kernel_entry_point);
 }

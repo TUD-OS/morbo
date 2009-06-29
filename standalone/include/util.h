@@ -74,7 +74,6 @@ int  out_char(unsigned value);
 void out_unsigned(unsigned int value, int len, unsigned base, char flag);
 void out_string(const char *value);
 void out_hex(unsigned int value, unsigned int bitlen);
-static inline void terpri(void) { out_char('\n'); }
 
 /**
  * every message with out_description is prefixed with message_label
@@ -95,5 +94,9 @@ void printf(const char *fmt, ...);
 void wait(int ms);
 void __exit(unsigned status) __attribute__((noreturn));
 void reboot(void) __attribute__((noreturn));
+
+/* Boot info */
+extern volatile const struct mbi *multiboot_info;
+extern volatile uint32_t kernel_entry_point;
 
 /* EOF */

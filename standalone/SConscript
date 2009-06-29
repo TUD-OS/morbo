@@ -4,7 +4,7 @@ Import('freestanding_env')
 
 fenv = freestanding_env.Clone()
 
-fenv['CPPPATH'] = ["include/"]
+fenv['CPPPATH'] = ["#include", "include/"]
 fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
 
 cutil = fenv.StaticLibrary('cutil',
