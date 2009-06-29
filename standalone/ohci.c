@@ -86,11 +86,10 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
   crom->field[10] = 0x0006 << 16; /* 6 words follow */
   crom->field[11] = 0;
   crom->field[12] = 0;
-  crom->field[13] = ntohl('Morb'); /* bswap text twice to keep it in
-				      original order. */
-  crom->field[14] = ntohl('o - ');
-  crom->field[15] = ntohl('OHCI');
-  crom->field[16] = ntohl(' v1\0');
+  crom->field[13] = 'Morb';
+  crom->field[14] = 'o - ';
+  crom->field[15] = 'OHCI';
+  crom->field[16] = ' v1\0';
   crom->field[10] |= crc16(&(crom->field[11]), 6);
 
   crom->field[17] = 0x002 << 16; /* 1 words follow */

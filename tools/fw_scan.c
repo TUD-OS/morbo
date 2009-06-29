@@ -197,6 +197,12 @@ collect_node_info(unsigned target_no)
 
 	unsigned text_length = root_dir[text_off] >> 16;
 
+        if (text_length > 10)
+          break;
+
+        for (unsigned i = 0; i < text_length; i++)
+          root_dir[text_off + 1 + i] =  ntohl(root_dir[text_off + 1 + i]);
+
 	memset(info->info_str, 0, sizeof(info->info_str));
 	strncpy(info->info_str, (char *)(&root_dir[text_off + 3]),
 		MIN(sizeof(info->info_str),
@@ -264,7 +270,7 @@ do_overview_screen(struct node_info_t *info)
 		 (info->status == RUN) ? info->guid : 0LLU,
 		 status_names[info->status],
 		 (info->bootable ? "BOOT" : ""),
-		 (info->bootable ? info->info_str : "")
+		 info->info_str /* Is an empty string, when no info is available. */
 		 );
 
     if (info->bootable) {
