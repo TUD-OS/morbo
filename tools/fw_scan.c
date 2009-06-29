@@ -51,7 +51,7 @@ static raw1394handle_t fw_handle;
 static int nodes = 0;
 
 static const char *status_names[] = { "UNDEF",
-				      "BROKEN",
+				      "B0rK",
 				      "INIT",
 				      "RUN",
 				      "DUMB" };
@@ -67,6 +67,7 @@ struct node_info_t {
   bool bootable;
   uint32_t multiboot_ptr;	/* Pointer to pointer */
   uint32_t kernel_entry_point;	/* Pointer to kernel_entry_point uint32_t */
+  uint64_t guid;
   char info_str[32];
 };
 
@@ -137,6 +138,9 @@ parse_config_rom(nodeid_t target, struct node_info_t *info)
       info->status = RUN;
     }
   }
+
+  /* Store GUID */
+  info->guid = (uint64_t)crom_buf[3] << 32 | crom_buf[4];
   
   /* Config ROM obtained. Check for Morbo. */
   /* XXX Check CRCs and bounds */
@@ -228,9 +232,10 @@ do_overview_screen(void)
     SLsmg_gotorc(i, 0);
     SLsmg_set_color(myself ? COLOR_MYSELF : ((info.status == BROKEN) ? COLOR_BROKEN : COLOR_NORMAL));
 
-    SLsmg_printf("%3u %c%c | %6s %4s | %s", i,
+    SLsmg_printf("%3u %c%c | %016llx %4s %4s | %s", i,
 		 root ? 'R' : ' ',
 		 irm ?  'I' : ' ',
+		 (info.status == RUN) ? info.guid : 0LLU,
 		 status_names[info.status],
 		 (info.bootable ? "BOOT" : ""),
 		 (info.bootable ? info.info_str : "")
