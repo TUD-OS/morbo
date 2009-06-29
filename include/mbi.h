@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 enum mbi_enum
   {
     MBI_MAGIC                  = 0x2badb002,
@@ -28,27 +30,27 @@ enum mbi_enum
 
 struct mbi
 {
-  unsigned flags;
-  unsigned mem_lower;
-  unsigned mem_upper;
-  unsigned boot_device;
-  unsigned cmdline;
-  unsigned mods_count;
-  unsigned mods_addr;
-  unsigned dummy0[4];
-  unsigned mmap_length;
-  unsigned mmap_addr;
-  unsigned dummy1[3];
-  unsigned boot_loader_name;
+  uint32_t flags;
+  uint32_t mem_lower;
+  uint32_t mem_upper;
+  uint32_t boot_device;
+  uint32_t cmdline;
+  uint32_t mods_count;
+  uint32_t mods_addr;
+  uint32_t dummy0[4];
+  uint32_t mmap_length;
+  uint32_t mmap_addr;
+  uint32_t dummy1[3];
+  uint32_t boot_loader_name;
 };
 
 
 struct module
 {
-  unsigned mod_start;
-  unsigned mod_end;
-  unsigned string;
-  unsigned reserved;
+  uint32_t mod_start;
+  uint32_t mod_end;
+  uint32_t string;
+  uint32_t reserved;
 };
 
 /* EOF */
