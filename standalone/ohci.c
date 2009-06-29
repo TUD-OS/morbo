@@ -29,6 +29,8 @@
 #define PHY_TIMEOUT   10000
 #define MISC_TIMEOUT  10000
 
+// #define FANCY_WAIT
+
 /* Globals */
 
 static __attribute__ ((aligned(1024)))
@@ -62,16 +64,12 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 
   /* Copy the first quadlets */
   crom->field[1] = OHCI_REG(ohci, BusID);
-  out_description("BusID       : ", crom->field[1]);
 
   /* We dont want to be bus master. */
   crom->field[2] = OHCI_REG(ohci, BusOptions) & 0x0FFFFFFF;
-  out_description("BusOptions  : ", crom->field[2]);
 
   crom->field[3] = OHCI_REG(ohci, GUIDHi);
   crom->field[4] = OHCI_REG(ohci, GUIDLo);
-  out_description("GUID_hi:", OHCI_REG(ohci, GUIDHi));
-  out_description("GUID_lo:", OHCI_REG(ohci, GUIDLo));
 
   /* Protect 4 words by CRC. */
   crom->field[0] = 0x04040000 | crc16(&(crom->field[1]), 4);
@@ -128,18 +126,22 @@ ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 static void
 wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t value, uint32_t max_ticks)
 {
+#ifdef FANCY_WAIT
   const char waitchars[] = "|/-\\";
-  unsigned i = 0;
-  
   OHCI_INFO("Waiting...  ");
+#endif
+  unsigned i = 0;
 
   while ((OHCI_REG(ohci, reg) & mask) != value) {
     wait(1);
+#ifdef FANCY_WAIT
     printf("[D%c", waitchars[i++ & 3]);
-
+#endif
     assert((max_ticks == NEVER) || (i < max_ticks), "Timeout!");
   }
+#ifdef FANCY_WAIT
   printf("\n");
+#endif
 }
 
 
@@ -365,14 +367,8 @@ ohci_initialize(const struct pci_device *pci_dev,
   wait_loop(ohci, HCControlSet, HCControl_linkEnable, HCControl_linkEnable, MISC_TIMEOUT);
   OHCI_INFO("Link is up.\n");
 
-
-  // display link speed and max size of packets
-  OHCI_INFO("Bus Options: 0x%x\n", OHCI_REG(ohci, BusOptions));
-  OHCI_INFO("HCControl:   0x%x\n", OHCI_REG(ohci, HCControlSet));
-
-  /* Display GUID */
-  OHCI_INFO("GUID_hi:     0x%x\n", OHCI_REG(ohci, GUIDHi));
-  OHCI_INFO("GUID_lo:     0x%x\n", OHCI_REG(ohci, GUIDLo));
+  /* Print GUID for easy reference. */
+  OHCI_INFO("GUID: %llx\n", (uint64_t)(OHCI_REG(ohci, GUIDHi)) << 32 | OHCI_REG(ohci, GUIDLo));
 
   return true;
 }
