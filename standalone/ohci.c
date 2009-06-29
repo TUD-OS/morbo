@@ -78,7 +78,7 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 
   /* Now we can generate a root directory */
 
-  crom->field[5] = 3 << 16;   /* 2 words follow. Put CRC here later. */
+  crom->field[5] = 4 << 16;   /* 4 words follow. Put CRC here later. */
   crom->field[6] = 0x03 << 24 | MORBO_VENDOR_ID; /* Immediate */
   crom->field[7] = 0x17 << 24 | MORBO_MODEL_ID;	 /* Immediate */
   crom->field[8] = 0x81 << 24 | 2;		 /* Text descriptor */
@@ -88,10 +88,11 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
   crom->field[10] = 0x0006 << 16; /* 6 words follow */
   crom->field[11] = 0;
   crom->field[12] = 0;
-  crom->field[13] = 'Morb';
-  crom->field[14] = 'o - ';
-  crom->field[15] = 'OHCI';
-  crom->field[16] = '  v1';
+  crom->field[13] = ntohl('Morb'); /* bswap text twice to keep it in
+				      original order. */
+  crom->field[14] = ntohl('o - ');
+  crom->field[15] = ntohl('OHCI');
+  crom->field[16] = ntohl(' v1\0');
   crom->field[10] |= crc16(&(crom->field[11]), 6);
 
   crom->field[17] = 0x002 << 16; /* 1 words follow */
