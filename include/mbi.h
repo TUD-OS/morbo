@@ -53,4 +53,14 @@ struct module
   uint32_t reserved;
 };
 
+struct memory_map
+{
+  uint32_t size;
+  uint32_t base_addr_low;
+  uint32_t base_addr_high;
+  uint32_t length_low;
+  uint32_t length_high;
+  uint32_t type;
+} memory_map_t;
+
 /* EOF */

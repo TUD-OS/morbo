@@ -30,6 +30,7 @@
 #include <mbi.h>
 
 #include "fw_b0rken.h"
+#include "fw_conf_parse.h"
 
 /* Constants */
 
@@ -115,7 +116,7 @@ collect_node_info(unsigned target_no)
 {
   assert(target_no < 63);
 
-  struct node_info_t *info = GC_malloc(sizeof(struct node_info_t));
+  struct node_info_t *info = GC_MALLOC(sizeof(struct node_info_t));
   quadlet_t crom_buf[32];
 
   info->status    = UNDEF;
@@ -277,13 +278,22 @@ static void
 do_boot_screen(struct node_info_t *boot_node_info)
 {
   nodeid_t node = boot_node_info->node_no | LOCAL_BUS;
+  /* XXX Hard coded config */
+  struct conf_item *conf = parse_config_file("foo.cfg");
   uint32_t mbi_ptr;
   struct mbi mbi;
 
   SLsmg_gotorc(0, 0);
   SLsmg_set_color(COLOR_NORMAL);
+  SLsmg_erase_eos();
   SLsmg_Newline_Behavior = SLSMG_NEWLINE_SCROLLS;
+  
+  if (conf == NULL) {
+    SLsmg_printf("Failed to read config.");
+    goto done;
+  }
 
+  /* Where is the pointer to the pointer to the MBI? */
   int res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
 			       sizeof(uint32_t), &mbi_ptr);
   if (res == -1) {
@@ -291,22 +301,32 @@ do_boot_screen(struct node_info_t *boot_node_info)
     goto done;
   }
 
-  SLsmg_printf("mbi @ 0x%x\n", mbi_ptr);
-
+  /* Where is the pointer to the MBI? */
+  /* XXX Might exceed maximum request size */
   res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
 			   (quadlet_t *)&mbi);
   if (res == -1) {
-    SLsmg_printf("2 errno %d\n", errno);
+    SLsmg_printf("Reading Multiboot info failed: %s\n", strerror(errno));
+    goto done;
+  }
+  
+  SLsmg_printf("flags %x\n", mbi.flags);
+  SLsmg_printf("mmap_addr %x - %x (%d bytes)\n", mbi.mmap_addr, mbi.mmap_addr + mbi.mmap_length,
+	       mbi.mmap_length);
+
+  /* Read memory map */
+  /* XXX Might exceed maximum request size */
+  struct memory_map *mmap_buf = GC_MALLOC(mbi.mmap_length);
+  res = raw1394_read_retry(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
+			   (quadlet_t *)mmap_buf);
+  if (res == -1) {
+    SLsmg_printf("Reading memory map failed: %s\n", strerror(errno));
     goto done;
   }
 
-  SLsmg_printf("flags %x", mbi.flags);
-
  done:
-  SLsmg_erase_eol();
-
   SLsmg_refresh();
-  sleep(3);
+  sleep(1);
 }
 
 int

@@ -5,13 +5,14 @@ Import('fw_env')
 henv = fw_env.Clone()
 
 elf_henv = henv.Clone()
+elf_henv['CFLAGS'] += ' -D_POSIX_SOURCE'
 elf_henv['CPPPATH'] += ['#include']
 elf_henv['LIBS'] += ['elf', 'gc']
 
 binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
              henv.Program('fw_peek', ['fw_peek.c']),
              henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
-             elf_henv.Program('fw_scan', ['fw_scan.c', 'fw_b0rken.c']),
+             elf_henv.Program('fw_scan', ['fw_scan.c', 'fw_b0rken.c', 'fw_conf_parse.c']),
              ]
 
 Install('#bin', binaries)
