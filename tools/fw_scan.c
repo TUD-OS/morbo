@@ -10,12 +10,12 @@
 
 /* "POSIX" */
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
 #include <unistd.h>
 #include <signal.h>
 #include <arpa/inet.h>		/* for ntohl */
-
 
 /* Libraries */
 #include <gc.h>
@@ -358,9 +358,16 @@ main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
+/*   int flags = fcntl(raw1394_get_fd(fw_handle), F_GETFL); */
+/*   assert((flags & ~O_NONBLOCK) == 0); */
+  if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) {
+    perror("fcntl");
+    exit(EXIT_FAILURE);
+  }
+
   if (elf_version(EV_CURRENT) == EV_NONE ) {
     /* library out of date */
-    fprintf(stderr, "Elf library out of date!n");
+    fprintf(stderr, "Elf library out of date!\n");
     exit(EXIT_FAILURE);
   }
 
@@ -425,10 +432,14 @@ main(int argc, char **argv)
     SLsmg_set_color(COLOR_STATUS);
 
     static int i = 0;
-    SLsmg_printf("Hit q to quit | %2d nodes | generation %2u | libraw1394 %s",
+    SLsmg_printf("Hit q to quit | %d nodes | generation %u | libraw1394 %s | %x/%x %x",
 		 nodes,
 		 raw1394_get_generation(fw_handle), 
-		 raw1394_get_libversion());
+		 raw1394_get_libversion(),
+		 GC_get_free_bytes(),
+		 GC_get_heap_size(),
+		 GC_get_bytes_since_gc()
+		 );
     SLsmg_erase_eol();
 
     SLsmg_gotorc(-1, 0);
@@ -436,15 +447,15 @@ main(int argc, char **argv)
 
     /* Process Firewire messages */
 
-/*     struct pollfd fd = { .fd = raw1394_get_fd(fw_handle), */
-/* 			 .events = POLLIN | POLLOUT }; */
+    struct pollfd fd = { .fd = raw1394_get_fd(fw_handle),
+			 .events = POLLIN | POLLOUT };
 
-/*     while (poll(&fd, 1, 0) == 1) { */
-/*       raw1394_loop_iterate(fw_handle); */
-/*     } */
+    while (poll(&fd, 1, 0) == 1) {
+      raw1394_loop_iterate(fw_handle);
+    }
 
     /* Sleep waiting for user input. */
-    SLang_input_pending(1);
+    SLang_input_pending(10);
 
     /* Process user input */
     while (SLang_input_pending(0)) {
