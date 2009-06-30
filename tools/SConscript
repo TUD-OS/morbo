@@ -11,7 +11,7 @@ elf_henv['LIBS'] += ['elf', 'gc']
 binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
              henv.Program('fw_peek', ['fw_peek.c']),
              henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
-             elf_henv.Program('fw_scan', ['fw_scan.c']),
+             elf_henv.Program('fw_scan', ['fw_scan.c', 'fw_b0rken.c']),
              ]
 
 Install('#bin', binaries)

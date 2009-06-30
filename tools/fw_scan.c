@@ -29,6 +29,8 @@
 #include <morbo.h>
 #include <mbi.h>
 
+#include "fw_b0rken.h"
+
 /* Constants */
 
 enum Color_obj {
@@ -124,22 +126,9 @@ collect_node_info(unsigned target_no)
   info->me        = (target_no == NODE_NO(raw1394_get_local_id(fw_handle)));
 
   for (unsigned word = 0; word < (sizeof(crom_buf)/4); word++) {
-    const unsigned max_tries = 5;
-    unsigned tries = 0;
-  again: {}
-
-    int ret = raw1394_read(fw_handle, target_no | LOCAL_BUS, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
-			   sizeof(quadlet_t), crom_buf + word);
+    int ret = raw1394_read_retry(fw_handle, target_no | LOCAL_BUS, CSR_REGISTER_BASE + CSR_CONFIG_ROM + word*sizeof(quadlet_t),
+				 sizeof(quadlet_t), crom_buf + word);
     if (ret != 0) {
-      /* Retry up to max_tries times. We get spurious
-	 EGAIN/EWOULDBLOCK (even if fw_handle should be set to
-	 blocking mode) */
-      switch (errno) {
-      case EAGAIN:
-	if (tries++ < max_tries)
-	  goto again;
-	break;
-      };
       info->status = BROKEN;
       goto done;
     }
@@ -292,10 +281,11 @@ do_boot_screen(struct node_info_t *boot_node_info)
   struct mbi mbi;
 
   SLsmg_gotorc(0, 0);
+  SLsmg_set_color(COLOR_NORMAL);
   SLsmg_Newline_Behavior = SLSMG_NEWLINE_SCROLLS;
 
-  int res = raw1394_read(fw_handle, node, boot_node_info->multiboot_ptr,
-			 sizeof(uint32_t), &mbi_ptr);
+  int res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
+			       sizeof(uint32_t), &mbi_ptr);
   if (res == -1) {
     SLsmg_printf("1 errno %d\n", errno);
     goto done;
@@ -303,8 +293,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
 
   SLsmg_printf("mbi @ 0x%x\n", mbi_ptr);
 
-  res = raw1394_read(fw_handle, node, mbi_ptr, sizeof(struct mbi),
-		     (quadlet_t *)&mbi);
+  res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+			   (quadlet_t *)&mbi);
   if (res == -1) {
     SLsmg_printf("2 errno %d\n", errno);
     goto done;
