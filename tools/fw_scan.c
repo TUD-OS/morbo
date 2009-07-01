@@ -303,8 +303,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
 
   /* Where is the pointer to the MBI? */
   /* XXX Might exceed maximum request size */
-  res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
-			   (quadlet_t *)&mbi);
+  res = raw1394_read_compat(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+			    (quadlet_t *)&mbi);
   if (res == -1) {
     SLsmg_printf("Reading Multiboot info failed: %s\n", strerror(errno));
     goto done;
@@ -317,8 +317,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
   /* Read memory map */
   /* XXX Might exceed maximum request size */
   struct memory_map *mmap_buf = GC_MALLOC(mbi.mmap_length);
-  res = raw1394_read_retry(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
-			   (quadlet_t *)mmap_buf);
+  res = raw1394_read_compat(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
+			    (quadlet_t *)mmap_buf);
   if (res == -1) {
     SLsmg_printf("Reading memory map failed: %s\n", strerror(errno));
     goto done;
