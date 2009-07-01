@@ -360,10 +360,10 @@ main(int argc, char **argv)
 
 /*   int flags = fcntl(raw1394_get_fd(fw_handle), F_GETFL); */
 /*   assert((flags & ~O_NONBLOCK) == 0); */
-  if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) {
-    perror("fcntl");
-    exit(EXIT_FAILURE);
-  }
+/*   if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) { */
+/*     perror("fcntl"); */
+/*     exit(EXIT_FAILURE); */
+/*   } */
 
   if (elf_version(EV_CURRENT) == EV_NONE ) {
     /* library out of date */
