@@ -51,7 +51,7 @@ main(int argc, char **argv)
     printf("Node %u:\n", node);
 
     unsigned int offset = 0;
-    while (offset < 16) {
+    while (offset < 0x100) {
       printf("%8x |", offset*sizeof(quadlet_t));
 
       for (unsigned int line_off = 0; line_off < 4; line_off++) {
