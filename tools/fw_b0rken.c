@@ -98,6 +98,8 @@ raw1394_write_large_old(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
   return 0;
 }
 
+
+/* XXXXXXXXX CLEANUP XXXXXXXXX */
 int
 raw1394_write_large(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
 		    size_t length, quadlet_t *buffer)
