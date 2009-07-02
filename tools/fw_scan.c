@@ -366,7 +366,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
 	  /* XXX Check if memory is free. */
 	  
 	  char *buf = GC_MALLOC(phdr.p_memsz);
-	  assert(buf[0] == 0);	/* XXX */
+	  /* GC returns zero'd memory. Otherwise we had to zero it
+	     explicitly. */
 
 	  res = lseek(fd, phdr.p_offset, SEEK_SET);
 	  if (res == (off_t)-1) {
