@@ -1,6 +1,9 @@
 /* -*- Mode: C -*- */
 
+#include <stdlib.h>
 #include <errno.h>
+#include <poll.h>
+#include <gc.h>
 #include <libraw1394/raw1394.h>
 
 #include "fw_b0rken.h"
@@ -9,7 +12,7 @@
 
 /* Better do select/poll, but do we ever wake up? */
 #define MAX_RETRIES 5
-#define MAX_REQUEST_SIZE 512
+const unsigned MAX_REQUEST_SIZE=2048;
 
 /** Try again upto MAX_RETRIES if raw1394_read returns EGAIN. */
 int
@@ -74,7 +77,7 @@ raw1394_write_retry(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
 }
 
 int
-raw1394_write_large(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
+raw1394_write_large_old(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
 		    size_t length, quadlet_t *buffer)
 {
   char *wbuf = (char *)buffer;
@@ -94,5 +97,89 @@ raw1394_write_large(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
 
   return 0;
 }
+
+int
+raw1394_write_large(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
+		    size_t length, quadlet_t *buffer)
+{
+  __label__ failure;
+
+  /* Find out how many requests we need an allocate a req structure
+     for each of them. */
+  unsigned reqs_no = length/MAX_REQUEST_SIZE;
+
+  if ((length % MAX_REQUEST_SIZE) != 0)
+    reqs_no++;
+
+  unsigned completed = 0;
+  struct retry {
+    struct retry *next;
+    unsigned req;
+  } *retry_list = 0;
+  
+  int local_handler(raw1394handle_t handle, unsigned long tag, raw1394_errcode_t err)
+  {
+    if (raw1394_get_ack(err) == 1) {
+      completed++;
+    } else {
+      struct retry *retry = GC_MALLOC(sizeof(struct retry));
+      retry->next = retry_list;
+      retry->req  = tag;
+      retry_list = retry;
+    }
+    
+    return err;
+  }
+
+  void pollreq(void)
+  {
+    struct pollfd fd = { .fd = raw1394_get_fd(handle),
+			 .events = POLLIN | POLLOUT };
+
+    while (poll(&fd, 1, 0) == 1) {
+      raw1394_loop_iterate(handle);
+    }
+
+  }
+
+  tag_handler_t old_handler = raw1394_set_tag_handler(handle, local_handler);
+
+  for (unsigned cur = 0; cur < reqs_no; cur++) {
+    char *reqbuf  = ((char *)buffer) + cur*MAX_REQUEST_SIZE;
+    size_t reqlen = (MAX_REQUEST_SIZE*(cur+1) > length) ? (length % MAX_REQUEST_SIZE) : MAX_REQUEST_SIZE;
+
+    int res = raw1394_start_write(handle, node, addr + cur*MAX_REQUEST_SIZE, reqlen,
+				  (quadlet_t *)reqbuf, cur);
+    if (res != 0)
+      goto failure;
+
+    pollreq();
+  }
+
+  while (completed < reqs_no) {
+    if (retry_list) {
+      unsigned cur = retry_list->req;
+      retry_list = retry_list->next;
+
+      char *reqbuf  = ((char *)buffer) + cur*MAX_REQUEST_SIZE;
+      size_t reqlen = (MAX_REQUEST_SIZE*(cur+1) > length) ? (length % MAX_REQUEST_SIZE) : MAX_REQUEST_SIZE;
+      
+      int res = raw1394_start_write(handle, node, addr + cur*MAX_REQUEST_SIZE, reqlen,
+				    (quadlet_t *)reqbuf, cur);
+      if (res != 0)
+	goto failure;
+      
+    }
+    pollreq();
+  }
+
+  raw1394_set_tag_handler(handle, old_handler);
+  return 0;
+
+ failure:
+  raw1394_set_tag_handler(handle, old_handler);
+  return -1;
+}
+
 
 /* EOF */
