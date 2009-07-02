@@ -31,6 +31,7 @@
 
 #include "fw_b0rken.h"
 #include "fw_conf_parse.h"
+#include "fw_scan_memory.h"
 
 /* Constants */
 
@@ -324,9 +325,20 @@ do_boot_screen(struct node_info_t *boot_node_info)
     goto done;
   }
 
+  struct memory_info *mem_info = parse_mbi_mmap(mmap_buf, mbi.mmap_length);
+
+  unsigned i = 0;
+  for (struct memory_info *cur = mem_info; cur != NULL; cur = cur->next, i++) {
+    if (cur->type == 1) 	/* Available */
+      SLsmg_printf("mmap[%u] addr %8llx size %8llx type %x\n",
+		   i, cur->addr, cur->length, cur->type);
+  }
+
  done:
+  SLsmg_printf("Press a key to continue.\n");
   SLsmg_refresh();
-  sleep(1);
+  while (!SLang_input_pending(-1)) {
+  }
 }
 
 int
