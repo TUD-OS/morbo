@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <arpa/inet.h>		/* for ntohl */
+#include <sys/time.h>
 
 /* Libraries */
 #include <gc.h>
@@ -283,6 +284,7 @@ do_boot_screen(struct node_info_t *boot_node_info)
   struct conf_item *conf = parse_config_file("foo.cfg");
   uint32_t mbi_ptr;
   struct mbi mbi;
+  int res;
 
   SLsmg_gotorc(0, 0);
   SLsmg_set_color(COLOR_NORMAL);
@@ -295,8 +297,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
   }
 
   /* Where is the pointer to the pointer to the MBI? */
-  int res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
-			       sizeof(uint32_t), &mbi_ptr);
+  res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
+			   sizeof(uint32_t), &mbi_ptr);
   if (res == -1) {
     SLsmg_printf("1 errno %d\n", errno);
     goto done;
@@ -304,8 +306,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
 
   /* Where is the pointer to the MBI? */
   /* XXX Might exceed maximum request size */
-  res = raw1394_read_compat(fw_handle, node, mbi_ptr, sizeof(struct mbi),
-			    (quadlet_t *)&mbi);
+  res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+			   (quadlet_t *)&mbi);
   if (res == -1) {
     SLsmg_printf("Reading Multiboot info failed: %s\n", strerror(errno));
     goto done;
@@ -318,8 +320,8 @@ do_boot_screen(struct node_info_t *boot_node_info)
   /* Read memory map */
   /* XXX Might exceed maximum request size */
   struct memory_map *mmap_buf = GC_MALLOC(mbi.mmap_length);
-  res = raw1394_read_compat(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
-			    (quadlet_t *)mmap_buf);
+  res = raw1394_read_large(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
+			   (quadlet_t *)mmap_buf);
   if (res == -1) {
     SLsmg_printf("Reading memory map failed: %s\n", strerror(errno));
     goto done;
@@ -332,6 +334,99 @@ do_boot_screen(struct node_info_t *boot_node_info)
     if (cur->type == 1) 	/* Available */
       SLsmg_printf("mmap[%u] addr %8llx size %8llx type %x\n",
 		   i, cur->addr, cur->length, cur->type);
+  }
+
+  /* Apply config */
+  uint64_t entry_point = ~0ULL;
+  int fd;
+  Elf *elf;
+  for (struct conf_item *cur = conf; cur != NULL; cur = cur->next) {
+    switch (cur->command) {
+    case EXEC:			/* Load and unpack an ELF binary */
+      fd = open(cur->argv[1], O_RDONLY);
+
+      if (fd == -1) {
+	SLsmg_printf("Could not open %s: %s\n", cur->argv[1], strerror(errno));
+	goto done;
+      }
+
+      elf = elf_begin(fd, ELF_C_READ, NULL);
+
+      /* Iterate over program headers. */
+      GElf_Ehdr ehdr; gelf_getehdr(elf, &ehdr);
+      entry_point = ehdr.e_entry;
+
+      for (unsigned p = 0; p < ehdr.e_phnum; p++) {
+	GElf_Phdr phdr; gelf_getphdr(elf, p, &phdr);
+	
+	if (phdr.p_type == PT_LOAD) {
+	  SLsmg_printf("LOAD paddr 0x%llx (file 0x%llx, mem 0x%llx)\n",
+		       phdr.p_paddr, phdr.p_filesz, phdr.p_memsz);
+
+	  /* XXX Check if memory is free. */
+	  
+	  char *buf = GC_MALLOC(phdr.p_memsz);
+	  assert(buf[0] == 0);	/* XXX */
+
+	  res = lseek(fd, phdr.p_offset, SEEK_SET);
+	  if (res == (off_t)-1) {
+	    SLsmg_printf("Could not seek: %s\n", strerror(errno));
+	    /* XXX Cleanup */
+	    goto done;
+	  }
+	  res = read(fd, buf, phdr.p_filesz);
+	  if (res != phdr.p_filesz) {
+	    SLsmg_printf("Could not read: %s\n", strerror(errno));
+	    /* XXX Cleanup */
+	    goto done;
+	  }
+	  
+	  SLsmg_refresh();
+	  struct timeval tv_start, tv_end;
+	  gettimeofday(&tv_start, NULL);
+	  int res = raw1394_write_large(fw_handle, node, phdr.p_paddr, phdr.p_memsz,
+					(quadlet_t *)buf);
+	  if (res == -1) {
+	    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
+	    /* XXX Cleanup */
+	    goto done;
+	  }
+	  gettimeofday(&tv_end, NULL);
+	  
+	  unsigned long diff_usec
+	    = (tv_end.tv_sec * 1000000 + tv_end.tv_usec) -
+	    (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
+	  float diff_sec = ((float)diff_usec) / 1000000.0;
+
+	  SLsmg_printf("%.2fs %.2f MB/s\n", diff_sec,
+		       (diff_sec == 0.0) ? -1.0 : ((float)phdr.p_memsz) / (diff_sec * 1024 * 1024));
+	    
+
+
+	}
+	
+      }
+
+
+      elf_end(elf);
+      close(fd);
+      break;
+    default:
+      SLsmg_printf("Skipping unimplemented statement in config.\n");
+    }
+  }
+
+  if (entry_point != ~0ULL) {
+    SLsmg_printf("Starting the box...\n");
+    SLsmg_refresh();
+
+    res = raw1394_write_retry(fw_handle, node, boot_node_info->kernel_entry_point, sizeof(uint32_t),
+			      (quadlet_t *)&entry_point);
+    if (res == -1) {
+      SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
+      /* XXX Cleanup */
+      goto done;
+    }
   }
 
  done:
