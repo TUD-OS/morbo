@@ -51,7 +51,7 @@ fw_env = Environment()
 
 fw_env.ParseConfig('pkg-config --cflags --libs libraw1394')
 
-fw_env['CPPPATH'] = ["include/"]
+fw_env['CPPPATH'] = ["#include/"]
 fw_env['CCFLAGS'] = "-O0 -march=native -pipe -g "
 fw_env['CFLAGS'] = "-std=c99 "
 fw_env['LIBS'] += ['slang']
@@ -86,7 +86,7 @@ Export('fw_env')
 
 SConscript(["standalone/SConscript",
             "tools/SConscript",
-            "fry/SConscript",
+            "fw_scan/SConscript",
             ])
 
 # EOF

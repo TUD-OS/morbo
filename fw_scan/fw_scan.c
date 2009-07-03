@@ -26,7 +26,7 @@
 #include <libelf/gelf.h>
 
 /* Our own stuff */
-#include <ohci.h>
+#include <ohci-constants.h>
 #include <morbo.h>
 #include <mbi.h>
 

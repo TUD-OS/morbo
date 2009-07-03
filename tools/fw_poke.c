@@ -10,7 +10,7 @@
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
 
-#include <ohci.h>
+#include <ohci-constants.h>
 
 /* Constants */
 
