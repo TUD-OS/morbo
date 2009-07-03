@@ -3,7 +3,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
 
@@ -63,7 +65,7 @@ main(int argc, char **argv)
 	if (ret == 0) {
 	  printf(" %08x", buf);
 	} else {
-	  printf(" XXXXXXXX");
+	  printf(" %8s", strerror(errno));
 	}
       }
       printf("\n");
