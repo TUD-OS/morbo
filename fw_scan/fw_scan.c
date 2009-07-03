@@ -305,8 +305,7 @@ do_boot_screen(struct node_info *boot_node_info)
   }
 
   /* Where is the pointer to the MBI? */
-  /* XXX Might exceed maximum request size */
-  res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+  res = raw1394_read_large(fw_handle, node, mbi_ptr, sizeof(struct mbi),
 			   (quadlet_t *)&mbi);
   if (res == -1) {
     SLsmg_printf("Reading Multiboot info failed: %s\n", strerror(errno));
@@ -362,6 +361,10 @@ do_boot_screen(struct node_info *boot_node_info)
 	  SLsmg_printf("LOAD paddr 0x%llx (file 0x%llx, mem 0x%llx)\n",
 		       phdr.p_paddr, phdr.p_filesz, phdr.p_memsz);
 
+	  if (!mem_range_available(mem_info, phdr.p_paddr, phdr.p_memsz)) {
+	    SLsmg_printf("Memory not free!\n");
+	    goto elf_fail;
+	  }
 	  /* XXX Check if memory is free. */
 	  
 	  char *buf = GC_MALLOC(phdr.p_memsz);
@@ -371,14 +374,12 @@ do_boot_screen(struct node_info *boot_node_info)
 	  res = lseek(fd, phdr.p_offset, SEEK_SET);
 	  if (res == (off_t)-1) {
 	    SLsmg_printf("Could not seek: %s\n", strerror(errno));
-	    /* XXX Cleanup */
-	    goto done;
+	    goto elf_fail;
 	  }
 	  res = read(fd, buf, phdr.p_filesz);
 	  if (res != phdr.p_filesz) {
 	    SLsmg_printf("Could not read: %s\n", strerror(errno));
-	    /* XXX Cleanup */
-	    goto done;
+	    goto elf_fail;
 	  }
 	  
 	  SLsmg_refresh();
@@ -388,8 +389,7 @@ do_boot_screen(struct node_info *boot_node_info)
 					(quadlet_t *)buf);
 	  if (res == -1) {
 	    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
-	    /* XXX Cleanup */
-	    goto done;
+	    goto elf_fail;
 	  }
 	  gettimeofday(&tv_end, NULL);
 	  
@@ -407,10 +407,15 @@ do_boot_screen(struct node_info *boot_node_info)
 	
       }
 
-
+    elf_done:
       elf_end(elf);
       close(fd);
       break;
+    elf_fail:
+      elf_end(elf);
+      close(fd);
+      goto fail;
+
     default:
       SLsmg_printf("Skipping unimplemented statement in config.\n");
     }
@@ -429,6 +434,7 @@ do_boot_screen(struct node_info *boot_node_info)
     }
   }
 
+    fail: {}
  done:
   SLsmg_printf("Press a key to continue.\n");
   SLsmg_refresh();
