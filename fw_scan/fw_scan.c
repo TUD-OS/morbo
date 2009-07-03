@@ -64,8 +64,8 @@ static const char *status_names[] = { "UNDEF",
 				      "RUN",
 				      "DUMB" };
 
-struct node_info_t {
-  struct node_info_t *next;
+struct node_info {
+  struct node_info *next;
 
   enum {
     UNDEF = 0,
@@ -113,12 +113,12 @@ static void sigint_handler (int sig)
   SLsignal (SIGINT, sigwinch_handler);
 }
 
-static struct node_info_t *
+static struct node_info *
 collect_node_info(unsigned target_no)
 {
   assert(target_no < 63);
 
-  struct node_info_t *info = GC_MALLOC(sizeof(struct node_info_t));
+  struct node_info *info = GC_MALLOC(sizeof(struct node_info));
   quadlet_t crom_buf[32];
 
   info->status    = UNDEF;
@@ -225,14 +225,14 @@ collect_node_info(unsigned target_no)
   return info;
 }
 
-static struct node_info_t *
+static struct node_info *
 collect_all_info(int *node_count)
 {
-  struct node_info_t *info = NULL;
+  struct node_info *info = NULL;
   unsigned nodes = raw1394_get_nodecount(fw_handle);
 
   for (unsigned i = nodes; i > 0; i--) {
-    struct node_info_t *new = collect_node_info(i - 1);
+    struct node_info *new = collect_node_info(i - 1);
     new->next = info;
     info = new;
   }
@@ -244,7 +244,7 @@ collect_all_info(int *node_count)
 
 /* Generate the overview list. This is the default screen. */
 static void
-do_overview_screen(struct node_info_t *info)
+do_overview_screen(struct node_info *info)
 {
   SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
   
@@ -277,7 +277,7 @@ do_overview_screen(struct node_info_t *info)
 }
 
 static void
-do_boot_screen(struct node_info_t *boot_node_info)
+do_boot_screen(struct node_info *boot_node_info)
 {
   nodeid_t node = boot_node_info->node_no | LOCAL_BUS;
   /* XXX Hard coded config */
@@ -510,14 +510,14 @@ main(int argc, char **argv)
       /* Redraw... */
     }
 
-    struct node_info_t *info = collect_all_info(&nodes);
+    struct node_info *info = collect_all_info(&nodes);
 
     switch (state) {
     case OVERVIEW:
       do_overview_screen(info);
       break;
     case BOOT:
-      for (struct node_info_t *cur = info; cur != NULL; cur = cur->next) {
+      for (struct node_info *cur = info; cur != NULL; cur = cur->next) {
 	if (cur->node_no == boot_no) {
 	  
 	  if (!cur->bootable)
