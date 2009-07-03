@@ -131,6 +131,11 @@ main(uint32_t magic, const struct mbi *mbi)
   /* Will not return */
   if (!kernel_entry_point)
     return start_module(mbi);
-  else
+  else if (multiboot_loader)
     jmp_multiboot((const struct mbi *)multiboot_info, kernel_entry_point);
+  else {
+    printf("Not started with Multiboot-compliant loader and nothing to do.\n");
+  }
+
+  return 0;
 }
