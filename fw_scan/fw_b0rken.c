@@ -103,15 +103,15 @@ raw1394_write_large_old(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
  */
 static void process_events(raw1394handle_t handle)
 {
+  int res;
   struct pollfd fd = { .fd = raw1394_get_fd(handle),
 		       .events = POLLIN | POLLOUT };
   
   /* XXX This should never block, but does under strange
      circumstances. This is very likely a kernel bug. */
-  while (poll(&fd, 1, 0) == 1) {
+  while ((res = poll(&fd, 1, 0)) >= 1) {
     raw1394_loop_iterate(handle);
   }
-  
 }
 
 /** Write a large data block in blocks of MAX_REQUEST_SIZE. Ideally,
