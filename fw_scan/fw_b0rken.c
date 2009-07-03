@@ -141,7 +141,7 @@ raw1394_write_large(raw1394handle_t handle, nodeid_t node, nodeaddr_t addr,
     if (raw1394_get_ack(err) == 1) {
       completed++;
     } else {
-      struct retry *retry = GC_MALLOC(sizeof(struct retry));
+      struct retry *retry = GC_NEW(struct retry);
       retry->next = retry_list;
       retry->req  = tag;
       retry_list = retry;

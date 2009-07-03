@@ -118,7 +118,7 @@ collect_node_info(unsigned target_no)
 {
   assert(target_no < 63);
 
-  struct node_info *info = GC_MALLOC(sizeof(struct node_info));
+  struct node_info *info = GC_NEW(struct node_info);
   quadlet_t crom_buf[32];
 
   info->status    = UNDEF;
@@ -318,8 +318,7 @@ do_boot_screen(struct node_info *boot_node_info)
 	       mbi.mmap_length);
 
   /* Read memory map */
-  /* XXX Might exceed maximum request size */
-  struct memory_map *mmap_buf = GC_MALLOC(mbi.mmap_length);
+  struct memory_map *mmap_buf = GC_MALLOC_ATOMIC(mbi.mmap_length);
   res = raw1394_read_large(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
 			   (quadlet_t *)mmap_buf);
   if (res == -1) {
@@ -433,6 +432,8 @@ do_boot_screen(struct node_info *boot_node_info)
  done:
   SLsmg_printf("Press a key to continue.\n");
   SLsmg_refresh();
+
+  GC_gcollect();		/* Collect large temporary data. */
   while (!SLang_input_pending(-1)) {
   }
 }
