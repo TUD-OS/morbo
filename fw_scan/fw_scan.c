@@ -46,6 +46,12 @@ enum Color_obj {
 };
 
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#define ROUND_UP_PAGE(X) (((X) + 0xFFF) & ~0xFFF)
+
+#define MODULE_STRING_BUFFER_SIZE (0x1000)
+
+/* Black list the first 64K of remote memory. Morbo is there. */
+#define MODULE_LOAD_LOWER_BOUND   (0x00110000) 
 
 /* Globals */
 
@@ -277,6 +283,17 @@ do_overview_screen(struct node_info *info)
   }
 }
 
+static void bw_info(uint64_t bytes, struct timeval *start, struct timeval *end)
+{
+  unsigned long diff_usec
+    = (end->tv_sec * 1000000 + end->tv_usec) -
+    (start->tv_sec * 1000000 + start->tv_usec);
+  float diff_sec = ((float)diff_usec) / 1000000.0;
+  
+  SLsmg_printf("%.2fs %.2f MB/s\n", diff_sec,
+	       (diff_sec == 0.0) ? -1.0 : ((float)bytes) / (diff_sec * 1024 * 1024));
+}
+
 static void
 do_boot_screen(struct node_info *boot_node_info)
 {
@@ -340,12 +357,31 @@ do_boot_screen(struct node_info *boot_node_info)
   }
 
   /* Apply config */
-  uint64_t entry_point = ~0ULL;
+
+  uint64_t entry_point = ~0ULL;	/* Entry point  */
+  uint64_t module_load_address = 0; /* Set in EXEC */
+
+  unsigned total_modules = 0;
+  for (struct conf_item *cur = conf; cur != NULL; cur = cur->next)
+    total_modules += (cur->command == LOAD) ? 1 : 0;
+
+  /* Bookkeeping to generate mbi module map. */
+  char *string_buffer = GC_MALLOC_ATOMIC(MODULE_STRING_BUFFER_SIZE);
+  unsigned string_buffer_cur = 0;
+  struct module *module_info = GC_MALLOC_ATOMIC(sizeof(struct module)*total_modules);
+
+  struct timeval tv_start, tv_end;
   int fd;
   Elf *elf;
+
   for (struct conf_item *cur = conf; cur != NULL; cur = cur->next) {
     switch (cur->command) {
     case LOAD:			/* Load a module */
+      if (module_load_address == 0) {
+	SLsmg_printf("load before exec. Bail out.\n");
+	goto fail;
+      }
+
       fd = open(cur->argv[1], O_RDONLY);
       if (fd == -1) {
 	SLsmg_printf("Could not open %s: %s\n", cur->argv[1], strerror(errno));
@@ -362,8 +398,21 @@ do_boot_screen(struct node_info *boot_node_info)
       }
 
       SLsmg_printf("Mapped at %p.\n", mod_map);
-
+      
+      SLsmg_refresh();
+      gettimeofday(&tv_start, NULL);
+      res = raw1394_write_large(fw_handle, node, module_load_address, size,
+				(quadlet_t *)mod_map);
+      if (res == -1) {
+	SLsmg_printf("Could not load module: %s\n", strerror(errno));
+	goto mod_fail;
+      }
+      gettimeofday(&tv_end, NULL);
+      bw_info(size, &tv_start, &tv_end);
+      
       /* XXX Complete */
+
+      module_load_address += ROUND_UP_PAGE(size);
 
     mod_done:
       close(fd);
@@ -372,6 +421,10 @@ do_boot_screen(struct node_info *boot_node_info)
       close(fd);
       goto fail;
     case EXEC:			/* Load and unpack an ELF binary */
+      if (entry_point != ~0ULL) {
+	SLsmg_printf("You have more than one exec statement in your config. Bail out...\n");
+	goto fail;
+      }
       fd = open(cur->argv[1], O_RDONLY);
 
       if (fd == -1) {
@@ -392,11 +445,20 @@ do_boot_screen(struct node_info *boot_node_info)
 	  SLsmg_printf("LOAD paddr 0x%llx (file 0x%llx, mem 0x%llx)\n",
 		       phdr.p_paddr, phdr.p_filesz, phdr.p_memsz);
 
+	  if (phdr.p_paddr < MODULE_LOAD_LOWER_BOUND) {
+	    SLsmg_printf("Memory conflict. Link your kernel at an address higher than 0x%8x.\n",
+			 MODULE_LOAD_LOWER_BOUND);
+	    goto elf_fail;
+	  }
+
 	  if (!mem_range_available(mem_info, phdr.p_paddr, phdr.p_memsz)) {
 	    SLsmg_printf("Memory not free!\n");
 	    goto elf_fail;
 	  }
-	  /* XXX Check if memory is free. */
+	  
+	  /* Take a guess where to put modules. */
+	  if ((phdr.p_paddr + phdr.p_memsz) > module_load_address)
+	    module_load_address = ROUND_UP_PAGE(phdr.p_paddr + phdr.p_memsz);
 	  
 	  char *buf = GC_MALLOC(phdr.p_memsz);
 	  /* GC returns zero'd memory. Otherwise we had to zero it
@@ -414,28 +476,16 @@ do_boot_screen(struct node_info *boot_node_info)
 	  }
 	  
 	  SLsmg_refresh();
-	  struct timeval tv_start, tv_end;
 	  gettimeofday(&tv_start, NULL);
-	  int res = raw1394_write_large(fw_handle, node, phdr.p_paddr, phdr.p_memsz,
+	  res = raw1394_write_large(fw_handle, node, phdr.p_paddr, phdr.p_memsz,
 					(quadlet_t *)buf);
 	  if (res == -1) {
 	    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
 	    goto elf_fail;
 	  }
 	  gettimeofday(&tv_end, NULL);
-	  
-	  unsigned long diff_usec
-	    = (tv_end.tv_sec * 1000000 + tv_end.tv_usec) -
-	    (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
-	  float diff_sec = ((float)diff_usec) / 1000000.0;
-
-	  SLsmg_printf("%.2fs %.2f MB/s\n", diff_sec,
-		       (diff_sec == 0.0) ? -1.0 : ((float)phdr.p_memsz) / (diff_sec * 1024 * 1024));
-	    
-
-
+	  bw_info(phdr.p_memsz, &tv_start, &tv_end);
 	}
-	
       }
 
     elf_done:
