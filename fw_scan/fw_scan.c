@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <arpa/inet.h>		/* for ntohl */
 #include <sys/time.h>
+#include <sys/mman.h>
 
 /* Libraries */
 #include <gc.h>
@@ -313,6 +314,10 @@ do_boot_screen(struct node_info *boot_node_info)
   }
   
   SLsmg_printf("flags %x\n", mbi.flags);
+  if ((mbi.flags & MBI_FLAG_MMAP) == 0) {
+    SLsmg_printf("No memory map on target. You are out of luck.\n");
+    goto fail;
+  }
   SLsmg_printf("mmap_addr %x - %x (%d bytes)\n", mbi.mmap_addr, mbi.mmap_addr + mbi.mmap_length,
 	       mbi.mmap_length);
 
@@ -340,6 +345,32 @@ do_boot_screen(struct node_info *boot_node_info)
   Elf *elf;
   for (struct conf_item *cur = conf; cur != NULL; cur = cur->next) {
     switch (cur->command) {
+    case LOAD:			/* Load a module */
+      fd = open(cur->argv[1], O_RDONLY);
+      if (fd == -1) {
+	SLsmg_printf("Could not open %s: %s\n", cur->argv[1], strerror(errno));
+	goto done;
+      }
+      off_t size = lseek(fd, 0, SEEK_END);
+      SLsmg_printf("Module %s: 0x%x Bytes\n", cur->argv[1], size);
+
+      void *mod_map = mmap(NULL, size, PROT_READ, MAP_PRIVATE,
+			   fd, 0);
+      if (mod_map == MAP_FAILED) {
+	SLsmg_printf("Map failed\n");
+	goto mod_fail;
+      }
+
+      SLsmg_printf("Mapped at %p.\n", mod_map);
+
+      /* XXX Complete */
+
+    mod_done:
+      close(fd);
+      break;
+    mod_fail:
+      close(fd);
+      goto fail;
     case EXEC:			/* Load and unpack an ELF binary */
       fd = open(cur->argv[1], O_RDONLY);
 
