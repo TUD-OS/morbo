@@ -133,7 +133,7 @@ main(uint32_t magic, const struct mbi *mbi)
  no_error:
 
   if (do_wait) {
-    printf("Waiting... (XXX No return from here... XXX)\n");
+    printf("Polling for events until we are kicked in the nuts.\n");
     while (!kernel_entry_point) {
       ohci_poll_events(&ohci);
     }
