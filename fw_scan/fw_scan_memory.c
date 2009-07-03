@@ -1,5 +1,6 @@
 /* -*- Mode: C -*- */
 
+#include <stdlib.h>
 #include <gc.h>
 
 #include "fw_scan_memory.h"
@@ -32,6 +33,24 @@ parse_mbi_mmap(struct memory_map *mmap_buf, size_t mmap_length)
   }
 
   return info_start;
+}
+
+bool
+mem_range_available(struct memory_info *info, uint64_t start, uint64_t length)
+{
+  if (length == 0) return true;
+
+  /* There must be a range of available memory enclosing
+     start<->start+length. */
+  for (struct memory_info *cur = info; cur != NULL; cur = cur->next) {
+    
+    if ((cur->type == 1) &&
+	(cur->addr <= start) &&
+	(cur->addr + cur->length <= start + length))
+      return true;
+  }
+
+  return false;
 }
 
 /* EOF */
