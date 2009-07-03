@@ -71,7 +71,18 @@ main(uint32_t magic, const struct mbi *mbi)
   /* Command line parsing */
   if (multiboot_loader) {
     multiboot_info = mbi;
-    parse_cmdline((const char *)mbi->cmdline);
+    if ((mbi->flags & MBI_FLAG_CMDLINE) != 0)
+      parse_cmdline((const char *)mbi->cmdline);
+
+    /* Check modules structure. */
+    if ((mbi->flags & MBI_FLAG_MODS) != 0) {
+      struct module *mod = (struct module *)mbi->mods_addr;
+      printf("%d modules.\n", mbi->mods_count);
+      for (unsigned i = 0; i < mbi->mods_count; i++, mod++) {
+	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
+      }
+    }
+
   } else {
     printf("Not loaded by Multiboot-compliant loader. No command line parsing.\n");
   }
