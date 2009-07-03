@@ -560,15 +560,6 @@ main(int argc, char **argv)
     SLsmg_gotorc(-1, 0);
     SLsmg_refresh();
 
-    /* Process Firewire messages */
-
-/*     struct pollfd fd = { .fd = raw1394_get_fd(fw_handle), */
-/* 			 .events = POLLIN | POLLOUT }; */
-
-/*     while (poll(&fd, 1, 0) == 1) { */
-/*       raw1394_loop_iterate(fw_handle); */
-/*     } */
-
     /* Sleep waiting for user input. */
     SLang_input_pending(10);
 
