@@ -7,10 +7,10 @@ henv['LIBPATH'] = [ '#brimstone' ]
 henv['CPPPATH'] += [ '#brimstone/include' ]
 henv['LIBS'] = ['brimstone']
 
-
 binaries = [ henv.Program('fw_poke', ['fw_poke.cpp']),
              henv.Program('fw_peek', ['fw_peek.cpp']),
              henv.Program('fw_provoke', ['fw_provoke.cpp']),
+             henv.Program('fw_sys', ['fw_sys.c']),
              henv.Program('fw_crom_dump', ['fw_crom_dump.cpp']),
              ]
 
