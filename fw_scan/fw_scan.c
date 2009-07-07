@@ -638,13 +638,6 @@ main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-/*   int flags = fcntl(raw1394_get_fd(fw_handle), F_GETFL); */
-/*   assert((flags & ~O_NONBLOCK) == 0); */
-/*   if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) { */
-/*     perror("fcntl"); */
-/*     exit(EXIT_FAILURE); */
-/*   } */
-
   if (elf_version(EV_CURRENT) == EV_NONE ) {
     /* library out of date */
     fprintf(stderr, "Elf library out of date!\n");
@@ -754,4 +747,6 @@ main(int argc, char **argv)
   return 0;
 }
 
-/* EOF */
+/* Local Variables: */
+/* mode:outline-minor */
+/* End: */
