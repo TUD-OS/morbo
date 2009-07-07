@@ -66,7 +66,8 @@ main(uint32_t magic, const struct mbi *mbi)
   multiboot_loader = (magic == MBI_MAGIC);
 
   serial_init();
-  printf("\n%s\n", version_str);
+  printf("\nMorbo %s\n", version_str);
+  printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
   /* Command line parsing */
   if (multiboot_loader) {

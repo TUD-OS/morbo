@@ -2,7 +2,7 @@
 
 #include <version.h>
 
-const char version_str[] = "Version 0.0 (unreleased crap)";
+const char version_str[] = "Version 0.2-beta1";
 const char message_label[] = "morbo: ";
 
 
