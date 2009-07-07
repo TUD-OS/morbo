@@ -314,7 +314,7 @@ do_boot_screen(struct node_info *boot_node_info)
     goto done;
   }
 
-  /* Where is the pointer to the pointer to the MBI? */
+  /* Read pointer to MBI */
   res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
 			   sizeof(uint32_t), &mbi_ptr);
   if (res == -1) {
@@ -322,7 +322,7 @@ do_boot_screen(struct node_info *boot_node_info)
     goto done;
   }
 
-  /* Where is the pointer to the MBI? */
+  /* Read MBI */
   res = raw1394_read_large(fw_handle, node, mbi_ptr, sizeof(struct mbi),
 			   (quadlet_t *)&mbi);
   if (res == -1) {
@@ -362,6 +362,7 @@ do_boot_screen(struct node_info *boot_node_info)
   uint64_t module_load_address = 0; /* Set in EXEC */
 
   unsigned total_modules = 0;
+  unsigned current_module = 0;
   for (struct conf_item *cur = conf; cur != NULL; cur = cur->next)
     total_modules += (cur->command == LOAD) ? 1 : 0;
 
@@ -388,7 +389,7 @@ do_boot_screen(struct node_info *boot_node_info)
 	goto done;
       }
       off_t size = lseek(fd, 0, SEEK_END);
-      SLsmg_printf("Module %s: 0x%x Bytes\n", cur->argv[1], size);
+      SLsmg_printf("Module %s: 0x%lx Bytes\n", cur->argv[1], size);
 
       void *mod_map = mmap(NULL, size, PROT_READ, MAP_PRIVATE,
 			   fd, 0);
@@ -411,8 +412,30 @@ do_boot_screen(struct node_info *boot_node_info)
       bw_info(size, &tv_start, &tv_end);
       
       /* XXX Complete */
+      module_info[current_module].mod_start = module_load_address;
+      module_info[current_module].mod_end   = module_load_address + size - 1;
+      module_info[current_module].reserved  = 0;
+
+      /* Build command line. */
+      size_t length = 0;
+      for (unsigned i = 1; i < cur->argc; i++)
+        length += strlen(cur->argv[i]) + 1;
+
+      char *buf = GC_MALLOC_ATOMIC(length);
+      buf[0] = 0;
+      for (unsigned i = 1; i < cur->argc; i++) {
+        strcat(buf, cur->argv[i]);
+        if (i < cur->argc-1) strcat(buf, " ");
+      }
+      assert(strlen(buf) + 1 == length);
+
+      module_info[current_module].string = string_buffer_cur;
+      string_buffer_cur += length;
+
+      memcpy(string_buffer + string_buffer_cur, buf, length);
 
       module_load_address += ROUND_UP_PAGE(size);
+      current_module      += 1;
 
     mod_done:
       close(fd);
@@ -425,6 +448,8 @@ do_boot_screen(struct node_info *boot_node_info)
 	SLsmg_printf("You have more than one exec statement in your config. Bail out...\n");
 	goto fail;
       }
+      SLsmg_printf("Kernel %s\n", cur->argv[1]);
+
       fd = open(cur->argv[1], O_RDONLY);
 
       if (fd == -1) {
@@ -502,20 +527,58 @@ do_boot_screen(struct node_info *boot_node_info)
     }
   }
 
-  if (entry_point != ~0ULL) {
-    SLsmg_printf("Starting the box...\n");
-    SLsmg_refresh();
+  if (module_load_address == 0)
+    goto fail;
 
-    res = raw1394_write_retry(fw_handle, node, boot_node_info->kernel_entry_point, sizeof(uint32_t),
-			      (quadlet_t *)&entry_point);
-    if (res == -1) {
-      SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
-      /* XXX Cleanup */
-      goto done;
-    }
+  /* Modules */
+  assert(current_module == total_modules);
+  SLsmg_printf("Finalizing module info.\n");
+  SLsmg_printf("String table at 0x%llx\n", module_load_address);
+  res = raw1394_write_large(fw_handle, node, module_load_address, string_buffer_cur,
+                            (quadlet_t *)string_buffer);
+  if (res == -1) {
+    SLsmg_printf("Could not write string buffer: %s\n", strerror(errno));
+    goto fail;
   }
 
-    fail: {}
+  /* Fixing string offset */
+  for (unsigned i = 0; i < total_modules; i++)
+    module_info[i].string += module_load_address;
+  
+  /* Write module info. */
+  module_load_address += ROUND_UP_PAGE(string_buffer_cur);
+  SLsmg_printf("Module info at 0x%llx\n", module_load_address);
+  res = raw1394_write_large(fw_handle, node, module_load_address, sizeof(struct module)*total_modules,
+                            (quadlet_t *)module_info);
+  if (res == -1) {
+    SLsmg_printf("Could not write module info: %s\n", strerror(errno));
+    goto fail;
+  }
+
+  /* Updating MBI and writing it back */
+  mbi.mods_count = total_modules;
+  mbi.mods_addr  = module_load_address;
+  mbi.flags |= MBI_FLAG_MODS;
+  res = raw1394_write_large(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+                            (quadlet_t *)(&mbi));
+  if (res == -1) {
+    SLsmg_printf("Could not write module info: %s\n", strerror(errno));
+    goto fail;
+  }
+
+
+  SLsmg_printf("Starting the box...\n");
+  SLsmg_refresh();
+  
+  res = raw1394_write_retry(fw_handle, node, boot_node_info->kernel_entry_point, sizeof(uint32_t),
+                            (quadlet_t *)&entry_point);
+  if (res == -1) {
+    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
+    /* XXX Cleanup */
+    goto done;
+  }
+
+ fail: {}
  done:
   SLsmg_printf("Press a key to continue.\n");
   SLsmg_refresh();
