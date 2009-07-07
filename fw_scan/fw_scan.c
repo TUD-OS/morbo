@@ -16,6 +16,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <arpa/inet.h>		/* for ntohl */
+#include <sys/time.h>
+#include <sys/mman.h>
 
 /* Libraries */
 #include <gc.h>
@@ -25,12 +27,13 @@
 #include <libelf/gelf.h>
 
 /* Our own stuff */
-#include <ohci.h>
+#include <ohci-constants.h>
 #include <morbo.h>
 #include <mbi.h>
 
 #include "fw_b0rken.h"
 #include "fw_conf_parse.h"
+#include "fw_scan_memory.h"
 
 /* Constants */
 
@@ -43,6 +46,12 @@ enum Color_obj {
 };
 
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#define ROUND_UP_PAGE(X) (((X) + 0xFFF) & ~0xFFF)
+
+#define MODULE_STRING_BUFFER_SIZE (0x1000)
+
+/* Black list the first 64K of remote memory. Morbo is there. */
+#define MODULE_LOAD_LOWER_BOUND   (0x00110000) 
 
 /* Globals */
 
@@ -62,8 +71,8 @@ static const char *status_names[] = { "UNDEF",
 				      "RUN",
 				      "DUMB" };
 
-struct node_info_t {
-  struct node_info_t *next;
+struct node_info {
+  struct node_info *next;
 
   enum {
     UNDEF = 0,
@@ -111,12 +120,12 @@ static void sigint_handler (int sig)
   SLsignal (SIGINT, sigwinch_handler);
 }
 
-static struct node_info_t *
+static struct node_info *
 collect_node_info(unsigned target_no)
 {
   assert(target_no < 63);
 
-  struct node_info_t *info = GC_MALLOC(sizeof(struct node_info_t));
+  struct node_info *info = GC_NEW(struct node_info);
   quadlet_t crom_buf[32];
 
   info->status    = UNDEF;
@@ -223,14 +232,14 @@ collect_node_info(unsigned target_no)
   return info;
 }
 
-static struct node_info_t *
+static struct node_info *
 collect_all_info(int *node_count)
 {
-  struct node_info_t *info = NULL;
+  struct node_info *info = NULL;
   unsigned nodes = raw1394_get_nodecount(fw_handle);
 
   for (unsigned i = nodes; i > 0; i--) {
-    struct node_info_t *new = collect_node_info(i - 1);
+    struct node_info *new = collect_node_info(i - 1);
     new->next = info;
     info = new;
   }
@@ -242,7 +251,7 @@ collect_all_info(int *node_count)
 
 /* Generate the overview list. This is the default screen. */
 static void
-do_overview_screen(struct node_info_t *info)
+do_overview_screen(struct node_info *info)
 {
   SLsmg_Newline_Behavior = SLSMG_NEWLINE_PRINTABLE;
   
@@ -274,14 +283,26 @@ do_overview_screen(struct node_info_t *info)
   }
 }
 
+static void bw_info(uint64_t bytes, struct timeval *start, struct timeval *end)
+{
+  unsigned long diff_usec
+    = (end->tv_sec * 1000000 + end->tv_usec) -
+    (start->tv_sec * 1000000 + start->tv_usec);
+  float diff_sec = ((float)diff_usec) / 1000000.0;
+  
+  SLsmg_printf("%.2fs %.2f MB/s\n", diff_sec,
+	       (diff_sec == 0.0) ? -1.0 : ((float)bytes) / (diff_sec * 1024 * 1024));
+}
+
 static void
-do_boot_screen(struct node_info_t *boot_node_info)
+do_boot_screen(struct node_info *boot_node_info)
 {
   nodeid_t node = boot_node_info->node_no | LOCAL_BUS;
   /* XXX Hard coded config */
   struct conf_item *conf = parse_config_file("foo.cfg");
   uint32_t mbi_ptr;
   struct mbi mbi;
+  int res;
 
   SLsmg_gotorc(0, 0);
   SLsmg_set_color(COLOR_NORMAL);
@@ -294,16 +315,15 @@ do_boot_screen(struct node_info_t *boot_node_info)
   }
 
   /* Where is the pointer to the pointer to the MBI? */
-  int res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
-			       sizeof(uint32_t), &mbi_ptr);
+  res = raw1394_read_retry(fw_handle, node, boot_node_info->multiboot_ptr,
+			   sizeof(uint32_t), &mbi_ptr);
   if (res == -1) {
     SLsmg_printf("1 errno %d\n", errno);
     goto done;
   }
 
   /* Where is the pointer to the MBI? */
-  /* XXX Might exceed maximum request size */
-  res = raw1394_read_retry(fw_handle, node, mbi_ptr, sizeof(struct mbi),
+  res = raw1394_read_large(fw_handle, node, mbi_ptr, sizeof(struct mbi),
 			   (quadlet_t *)&mbi);
   if (res == -1) {
     SLsmg_printf("Reading Multiboot info failed: %s\n", strerror(errno));
@@ -311,22 +331,198 @@ do_boot_screen(struct node_info_t *boot_node_info)
   }
   
   SLsmg_printf("flags %x\n", mbi.flags);
+  if ((mbi.flags & MBI_FLAG_MMAP) == 0) {
+    SLsmg_printf("No memory map on target. You are out of luck.\n");
+    goto fail;
+  }
   SLsmg_printf("mmap_addr %x - %x (%d bytes)\n", mbi.mmap_addr, mbi.mmap_addr + mbi.mmap_length,
 	       mbi.mmap_length);
 
   /* Read memory map */
-  /* XXX Might exceed maximum request size */
-  struct memory_map *mmap_buf = GC_MALLOC(mbi.mmap_length);
-  res = raw1394_read_retry(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
+  struct memory_map *mmap_buf = GC_MALLOC_ATOMIC(mbi.mmap_length);
+  res = raw1394_read_large(fw_handle, node, mbi.mmap_addr, mbi.mmap_length,
 			   (quadlet_t *)mmap_buf);
   if (res == -1) {
     SLsmg_printf("Reading memory map failed: %s\n", strerror(errno));
     goto done;
   }
 
+  struct memory_info *mem_info = parse_mbi_mmap(mmap_buf, mbi.mmap_length);
+
+  unsigned i = 0;
+  for (struct memory_info *cur = mem_info; cur != NULL; cur = cur->next, i++) {
+    if (cur->type == 1) 	/* Available */
+      SLsmg_printf("mmap[%u] addr %8llx size %8llx type %x\n",
+		   i, cur->addr, cur->length, cur->type);
+  }
+
+  /* Apply config */
+
+  uint64_t entry_point = ~0ULL;	/* Entry point  */
+  uint64_t module_load_address = 0; /* Set in EXEC */
+
+  unsigned total_modules = 0;
+  for (struct conf_item *cur = conf; cur != NULL; cur = cur->next)
+    total_modules += (cur->command == LOAD) ? 1 : 0;
+
+  /* Bookkeeping to generate mbi module map. */
+  char *string_buffer = GC_MALLOC_ATOMIC(MODULE_STRING_BUFFER_SIZE);
+  unsigned string_buffer_cur = 0;
+  struct module *module_info = GC_MALLOC_ATOMIC(sizeof(struct module)*total_modules);
+
+  struct timeval tv_start, tv_end;
+  int fd;
+  Elf *elf;
+
+  for (struct conf_item *cur = conf; cur != NULL; cur = cur->next) {
+    switch (cur->command) {
+    case LOAD:			/* Load a module */
+      if (module_load_address == 0) {
+	SLsmg_printf("load before exec. Bail out.\n");
+	goto fail;
+      }
+
+      fd = open(cur->argv[1], O_RDONLY);
+      if (fd == -1) {
+	SLsmg_printf("Could not open %s: %s\n", cur->argv[1], strerror(errno));
+	goto done;
+      }
+      off_t size = lseek(fd, 0, SEEK_END);
+      SLsmg_printf("Module %s: 0x%x Bytes\n", cur->argv[1], size);
+
+      void *mod_map = mmap(NULL, size, PROT_READ, MAP_PRIVATE,
+			   fd, 0);
+      if (mod_map == MAP_FAILED) {
+	SLsmg_printf("Map failed\n");
+	goto mod_fail;
+      }
+
+      SLsmg_printf("Mapped at %p.\n", mod_map);
+      
+      SLsmg_refresh();
+      gettimeofday(&tv_start, NULL);
+      res = raw1394_write_large(fw_handle, node, module_load_address, size,
+				(quadlet_t *)mod_map);
+      if (res == -1) {
+	SLsmg_printf("Could not load module: %s\n", strerror(errno));
+	goto mod_fail;
+      }
+      gettimeofday(&tv_end, NULL);
+      bw_info(size, &tv_start, &tv_end);
+      
+      /* XXX Complete */
+
+      module_load_address += ROUND_UP_PAGE(size);
+
+    mod_done:
+      close(fd);
+      break;
+    mod_fail:
+      close(fd);
+      goto fail;
+    case EXEC:			/* Load and unpack an ELF binary */
+      if (entry_point != ~0ULL) {
+	SLsmg_printf("You have more than one exec statement in your config. Bail out...\n");
+	goto fail;
+      }
+      fd = open(cur->argv[1], O_RDONLY);
+
+      if (fd == -1) {
+	SLsmg_printf("Could not open %s: %s\n", cur->argv[1], strerror(errno));
+	goto done;
+      }
+
+      elf = elf_begin(fd, ELF_C_READ, NULL);
+
+      /* Iterate over program headers. */
+      GElf_Ehdr ehdr; gelf_getehdr(elf, &ehdr);
+      entry_point = ehdr.e_entry;
+
+      for (unsigned p = 0; p < ehdr.e_phnum; p++) {
+	GElf_Phdr phdr; gelf_getphdr(elf, p, &phdr);
+	
+	if (phdr.p_type == PT_LOAD) {
+	  SLsmg_printf("LOAD paddr 0x%llx (file 0x%llx, mem 0x%llx)\n",
+		       phdr.p_paddr, phdr.p_filesz, phdr.p_memsz);
+
+	  if (phdr.p_paddr < MODULE_LOAD_LOWER_BOUND) {
+	    SLsmg_printf("Memory conflict. Link your kernel at an address higher than 0x%8x.\n",
+			 MODULE_LOAD_LOWER_BOUND);
+	    goto elf_fail;
+	  }
+
+	  if (!mem_range_available(mem_info, phdr.p_paddr, phdr.p_memsz)) {
+	    SLsmg_printf("Memory not free!\n");
+	    goto elf_fail;
+	  }
+	  
+	  /* Take a guess where to put modules. */
+	  if ((phdr.p_paddr + phdr.p_memsz) > module_load_address)
+	    module_load_address = ROUND_UP_PAGE(phdr.p_paddr + phdr.p_memsz);
+	  
+	  char *buf = GC_MALLOC(phdr.p_memsz);
+	  /* GC returns zero'd memory. Otherwise we had to zero it
+	     explicitly. */
+
+	  res = lseek(fd, phdr.p_offset, SEEK_SET);
+	  if (res == (off_t)-1) {
+	    SLsmg_printf("Could not seek: %s\n", strerror(errno));
+	    goto elf_fail;
+	  }
+	  res = read(fd, buf, phdr.p_filesz);
+	  if (res != phdr.p_filesz) {
+	    SLsmg_printf("Could not read: %s\n", strerror(errno));
+	    goto elf_fail;
+	  }
+	  
+	  SLsmg_refresh();
+	  gettimeofday(&tv_start, NULL);
+	  res = raw1394_write_large(fw_handle, node, phdr.p_paddr, phdr.p_memsz,
+					(quadlet_t *)buf);
+	  if (res == -1) {
+	    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
+	    goto elf_fail;
+	  }
+	  gettimeofday(&tv_end, NULL);
+	  bw_info(phdr.p_memsz, &tv_start, &tv_end);
+	}
+      }
+
+    elf_done:
+      elf_end(elf);
+      close(fd);
+      break;
+    elf_fail:
+      elf_end(elf);
+      close(fd);
+      goto fail;
+
+    default:
+      SLsmg_printf("Skipping unimplemented statement in config.\n");
+    }
+  }
+
+  if (entry_point != ~0ULL) {
+    SLsmg_printf("Starting the box...\n");
+    SLsmg_refresh();
+
+    res = raw1394_write_retry(fw_handle, node, boot_node_info->kernel_entry_point, sizeof(uint32_t),
+			      (quadlet_t *)&entry_point);
+    if (res == -1) {
+      SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
+      /* XXX Cleanup */
+      goto done;
+    }
+  }
+
+    fail: {}
  done:
+  SLsmg_printf("Press a key to continue.\n");
   SLsmg_refresh();
-  sleep(1);
+
+  GC_gcollect();		/* Collect large temporary data. */
+  while (!SLang_input_pending(-1)) {
+  }
 }
 
 int
@@ -360,10 +556,10 @@ main(int argc, char **argv)
 
 /*   int flags = fcntl(raw1394_get_fd(fw_handle), F_GETFL); */
 /*   assert((flags & ~O_NONBLOCK) == 0); */
-  if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) {
-    perror("fcntl");
-    exit(EXIT_FAILURE);
-  }
+/*   if (fcntl(raw1394_get_fd(fw_handle), F_SETFL, 0) != 0) { */
+/*     perror("fcntl"); */
+/*     exit(EXIT_FAILURE); */
+/*   } */
 
   if (elf_version(EV_CURRENT) == EV_NONE ) {
     /* library out of date */
@@ -402,14 +598,14 @@ main(int argc, char **argv)
       /* Redraw... */
     }
 
-    struct node_info_t *info = collect_all_info(&nodes);
+    struct node_info *info = collect_all_info(&nodes);
 
     switch (state) {
     case OVERVIEW:
       do_overview_screen(info);
       break;
     case BOOT:
-      for (struct node_info_t *cur = info; cur != NULL; cur = cur->next) {
+      for (struct node_info *cur = info; cur != NULL; cur = cur->next) {
 	if (cur->node_no == boot_no) {
 	  
 	  if (!cur->bootable)
@@ -444,15 +640,6 @@ main(int argc, char **argv)
 
     SLsmg_gotorc(-1, 0);
     SLsmg_refresh();
-
-    /* Process Firewire messages */
-
-    struct pollfd fd = { .fd = raw1394_get_fd(fw_handle),
-			 .events = POLLIN | POLLOUT };
-
-    while (poll(&fd, 1, 0) == 1) {
-      raw1394_loop_iterate(fw_handle);
-    }
 
     /* Sleep waiting for user input. */
     SLang_input_pending(10);

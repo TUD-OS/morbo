@@ -3,14 +3,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
 
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
 
-#include <ohci.h>
+#include <ohci-constants.h>
 
 /* Constants */
 
@@ -63,7 +65,7 @@ main(int argc, char **argv)
 	if (ret == 0) {
 	  printf(" %08x", buf);
 	} else {
-	  printf(" XXXXXXXX");
+	  printf(" %8s", strerror(errno));
 	}
       }
       printf("\n");

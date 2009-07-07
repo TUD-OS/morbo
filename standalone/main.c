@@ -71,7 +71,18 @@ main(uint32_t magic, const struct mbi *mbi)
   /* Command line parsing */
   if (multiboot_loader) {
     multiboot_info = mbi;
-    parse_cmdline((const char *)mbi->cmdline);
+    if ((mbi->flags & MBI_FLAG_CMDLINE) != 0)
+      parse_cmdline((const char *)mbi->cmdline);
+
+    /* Check modules structure. */
+    if ((mbi->flags & MBI_FLAG_MODS) != 0) {
+      struct module *mod = (struct module *)mbi->mods_addr;
+      printf("%d modules.\n", mbi->mods_count);
+      for (unsigned i = 0; i < mbi->mods_count; i++, mod++) {
+	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
+      }
+    }
+
   } else {
     printf("Not loaded by Multiboot-compliant loader. No command line parsing.\n");
   }
@@ -122,7 +133,7 @@ main(uint32_t magic, const struct mbi *mbi)
  no_error:
 
   if (do_wait) {
-    printf("Waiting... (XXX No return from here... XXX)\n");
+    printf("Polling for events until we are kicked in the nuts.\n");
     while (!kernel_entry_point) {
       ohci_poll_events(&ohci);
     }
@@ -131,6 +142,11 @@ main(uint32_t magic, const struct mbi *mbi)
   /* Will not return */
   if (!kernel_entry_point)
     return start_module(mbi);
-  else
+  else if (multiboot_loader)
     jmp_multiboot((const struct mbi *)multiboot_info, kernel_entry_point);
+  else {
+    printf("Not started with Multiboot-compliant loader and nothing to do.\n");
+  }
+
+  return 0;
 }

@@ -1,0 +1,18 @@
+# -*- Mode: Python -*-
+
+Import('fw_env')
+
+henv = fw_env.Clone()
+
+elf_henv = henv.Clone()
+elf_henv['CFLAGS'] += ' -D_POSIX_SOURCE'
+elf_henv['CPPPATH'] += ['#include']
+elf_henv['LIBS'] += ['elf', 'gc']
+
+binaries = [ elf_henv.Program('fw_scan', ['fw_scan.c', 'fw_b0rken.c', 'fw_conf_parse.c',
+                                          'fw_scan_memory.c']),
+             ]
+
+Install('#bin', binaries)
+    
+# EOF
