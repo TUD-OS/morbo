@@ -294,6 +294,27 @@ static void bw_info(uint64_t bytes, struct timeval *start, struct timeval *end)
 	       (diff_sec == 0.0) ? -1.0 : ((float)bytes) / (diff_sec * 1024 * 1024));
 }
 
+char *
+strjoin(int argc, char **argv, char fill)
+{
+  assert(argc >= 1);
+
+  /* Build command line. */
+  size_t length = 0;
+  for (unsigned i = 0; i < argc; i++)
+    length += strlen(argv[i]) + 1;
+  
+  char fillb[2] = { fill, 0 };
+  char *buf = GC_MALLOC_ATOMIC(length);
+  buf[0] = 0;
+  for (unsigned i = 0; i < argc; i++) {
+    strcat(buf, argv[i]);
+    if (i < argc-1) strcat(buf, fillb);
+  }
+  
+  return buf;
+}
+
 static void
 do_boot_screen(struct node_info *boot_node_info)
 {
@@ -373,6 +394,7 @@ do_boot_screen(struct node_info *boot_node_info)
 
   struct timeval tv_start, tv_end;
   int fd;
+  char *buf;
   Elf *elf;
 
   for (struct conf_item *cur = conf; cur != NULL; cur = cur->next) {
@@ -411,23 +433,15 @@ do_boot_screen(struct node_info *boot_node_info)
       gettimeofday(&tv_end, NULL);
       bw_info(size, &tv_start, &tv_end);
       
-      /* XXX Complete */
+      /* Build module info */
       module_info[current_module].mod_start = module_load_address;
       module_info[current_module].mod_end   = module_load_address + size - 1;
       module_info[current_module].reserved  = 0;
 
       /* Build command line. */
-      size_t length = 0;
-      for (unsigned i = 1; i < cur->argc; i++)
-        length += strlen(cur->argv[i]) + 1;
 
-      char *buf = GC_MALLOC_ATOMIC(length);
-      buf[0] = 0;
-      for (unsigned i = 1; i < cur->argc; i++) {
-        strcat(buf, cur->argv[i]);
-        if (i < cur->argc-1) strcat(buf, " ");
-      }
-      assert(strlen(buf) + 1 == length);
+      buf = strjoin(cur->argc-1, cur->argv + 1, ' ');
+      size_t length = strlen(buf) + 1;
 
       module_info[current_module].string = string_buffer_cur;
       string_buffer_cur += length;
@@ -485,7 +499,7 @@ do_boot_screen(struct node_info *boot_node_info)
 	  if ((phdr.p_paddr + phdr.p_memsz) > module_load_address)
 	    module_load_address = ROUND_UP_PAGE(phdr.p_paddr + phdr.p_memsz);
 	  
-	  char *buf = GC_MALLOC(phdr.p_memsz);
+	  buf = GC_MALLOC(phdr.p_memsz);
 	  /* GC returns zero'd memory. Otherwise we had to zero it
 	     explicitly. */
 
@@ -516,6 +530,13 @@ do_boot_screen(struct node_info *boot_node_info)
     elf_done:
       elf_end(elf);
       close(fd);
+
+      /* Write command line */
+      char *buf = strjoin(cur->argc-1, cur->argv + 1, ' ');
+      strcpy(string_buffer + string_buffer_cur, buf);
+      mbi.cmdline = string_buffer_cur;
+      string_buffer_cur += strlen(buf) + 1;
+
       break;
     elf_fail:
       elf_end(elf);
@@ -542,6 +563,7 @@ do_boot_screen(struct node_info *boot_node_info)
   }
 
   /* Fixing string offset */
+  mbi.cmdline += module_load_address;
   for (unsigned i = 0; i < total_modules; i++)
     module_info[i].string += module_load_address;
   
@@ -558,14 +580,13 @@ do_boot_screen(struct node_info *boot_node_info)
   /* Updating MBI and writing it back */
   mbi.mods_count = total_modules;
   mbi.mods_addr  = module_load_address;
-  mbi.flags |= MBI_FLAG_MODS;
+  mbi.flags |= MBI_FLAG_MODS | MBI_FLAG_CMDLINE;
   res = raw1394_write_large(fw_handle, node, mbi_ptr, sizeof(struct mbi),
                             (quadlet_t *)(&mbi));
   if (res == -1) {
     SLsmg_printf("Could not write module info: %s\n", strerror(errno));
     goto fail;
   }
-
 
   SLsmg_printf("Starting the box...\n");
   SLsmg_refresh();
