@@ -282,6 +282,11 @@ ohci_initialize(const struct pci_device *pci_dev,
   wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
   OHCI_INFO("LPS is up.\n");
 
+  /* Disable contender bit */
+  uint8_t phy4 = phy_read(ohci, 4);
+  OHCI_INFO("phy4 = %x\n", phy4);
+  phy_write(ohci, 4, phy4 & ~0x40);
+
   /* LPS is up. We can now communicate with the PHY. Discover how many
      ports we have and whether this PHY supports the enhanced register
      map. */
