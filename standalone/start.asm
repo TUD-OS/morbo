@@ -20,9 +20,9 @@ _start:
 
 
 jmp_multiboot:
+        xchg    eax, ebx
         mov     eax, 2BADB002h
-        mov     ebx, [esp + 4]
-        jmp     dword [esp + 8]
+        jmp     edx
         
         SECTION .bss
         resb 4096
