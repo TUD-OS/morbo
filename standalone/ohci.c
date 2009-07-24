@@ -354,7 +354,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   OHCI_INFO("Generation: %x\n", (OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF);
 
   // we retry because of a busy partner
-  OHCI_REG(ohci, ATRetries) = 0x822;
+  OHCI_REG(ohci, ATRetries) = 0xFFF;
 
   if (OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) {
     OHCI_INFO("Link is already enabled. Why?!\n");
