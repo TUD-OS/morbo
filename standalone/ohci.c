@@ -59,6 +59,8 @@ uint32_t selfid_buf[504];
 static void
 ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
+  assert(crom != 0, "CROM NULL");
+
   /* Initialize with zero */
   memset(crom, 0, sizeof(ohci_config_rom_t));
 
@@ -102,6 +104,8 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 static void
 ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
+  assert(crom != 0, "CROM NULL");
+
   if (((uint32_t)crom) & 1023) {
     OHCI_INFO("Misaligned Config ROM!\n");
     /* XXX Should abort here. */
