@@ -87,6 +87,7 @@ Export('fw_env')
 SConscript(["standalone/SConscript",
             "tools/SConscript",
             "fw_scan/SConscript",
+            "brimstone/SConscript",
             ])
 
 # EOF
