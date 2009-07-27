@@ -31,10 +31,10 @@ main(int argc, char **argv)
   unsigned count = 0;
   char buf[128];
   while (1) {
-    int res = raw1394_write(h, 0xFFC0 | node, 0, sizeof(buf),
+    int res = raw1394_write(h, 0xFFC0 | node, 0x1000, sizeof(buf),
                             (quadlet_t *)buf);
     printf("res = %d, count = %u\n", res, ++count);
-    usleep(100000);
+    // usleep(100000);
   }
   
   return 0;
