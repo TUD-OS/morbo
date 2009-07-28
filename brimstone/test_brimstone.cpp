@@ -16,15 +16,9 @@ main(int argc, char **argv)
   }
 
   try {
-    Port p(argv[1], cout);
+    Node p(argv[1]);
 
-    char buf[512];
-    p.post_block_read(0xFFC0, 0x0, buf, sizeof(buf));
-
-    while (1) {
-      p.wait();
-      p.read_event();
-    }
+    cout << "target[0] = " << p.quadlet_read(0) << endl;
 
   } catch (SyscallError *syserr) {
     printf("Syscall error: %s\n", syserr->what());

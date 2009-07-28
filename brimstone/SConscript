@@ -6,6 +6,6 @@ env['CXXFLAGS'] = "-std=c++0x -g -O0"
 env['CPPPATH'] = ["include/"]
 
 env.Library('brimstone', ['brimstone.cpp'])
-env.Program('test_brimstone', ['test_brimstone.cpp'], LIBPATH='.', LIBS=['brimstone', 'gc'])
+env.Program('test_brimstone', ['test_brimstone.cpp'], LIBPATH='.', LIBS=['brimstone'])
 
 # EOF

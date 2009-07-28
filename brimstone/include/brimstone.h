@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <gc/gc_cpp.h>
-
 #include <cstdint>
 #include <iostream>
 #include <exception>
@@ -37,44 +35,83 @@ namespace Brimstone {
 
   // I/O API
 
-  class Port : 
-    // "cleanup" is more like a wish. ;) The cleanup handler is not
-    // called if the object survives until program exit.
-    public gc_cleanup 
-  {
+  class Node {
   protected:
-    int fd;
-    ostream &log;
-
     static const unsigned buffer_size = 4096;
-    char buffer[buffer_size] __attribute__((aligned(16)));
+    char _buffer[buffer_size] __attribute__((aligned(4)));
 
-    void update_bus_info(::fw_cdev_event_bus_reset *bus_reset_event);
+    int _fd;
+    ostream &_log;
+
+    uint32_t _node_id;
+    uint32_t _local_node_id;
+    uint32_t _bm_node_id;
+    uint32_t _irm_node_id;
+    uint32_t _root_node_id;
+    uint32_t _generation;
+
+    unsigned _in_flight;
+
+    void update_bus_info(fw_cdev_event_bus_reset *bus_reset_event);
     void get_info();
-
-  public:
-    uint32_t node_id;
-    uint32_t local_node_id;
-    uint32_t bm_node_id;
-    uint32_t irm_node_id;
-    uint32_t root_node_id;
-    uint32_t generation;
-
-    void wait();
+    bool wait(bool block);
     void read_event();
 
-    void post_block_read(uint32_t node, uint64_t addr, void *buf, size_t buf_size);
-    // void post_block_write(uint32_t node, uint64_t addr, void *buf, size_t buf_size);
+  public:
 
-    // void barrier();
+    // Start an asynchronous read transaction.
+    void post_read(uint64_t addr, void *buf, size_t buf_size);
 
-    uint32_t quadlet_read(uint32_t node, uint64_t addr);
-    void quadlet_write(uint32_t node, uint64_t addr, uint32_t data);
+    // Start an asynchronous write transaction.
+    void post_write(uint64_t addr, void *buf, size_t buf_size);
 
-    int get_fd() const { return fd; }
+    // Poll for events without blocking.
+    void poll();
 
-    Port(const char *dev, ostream &log);
-    virtual ~Port();
+    // Block until all asynchronous transactions have finished.
+    void barrier();
+
+    // Synchronously read a quadlet.
+    uint32_t quadlet_read(uint64_t addr) {
+      uint32_t res;
+      post_read(addr, &res, sizeof(res));
+      barrier();
+      return res;
+    }
+
+    // Synchronously write a quadlet.
+    void quadlet_write(uint64_t addr, uint32_t data) {
+      post_write(addr, &data, sizeof(data));
+      // Do we want a barrier here?
+      barrier();
+    }
+
+    int fd() const { return _fd; }
+    ostream &log() const { return _log; }
+
+    // Returns our current node ID.
+    uint32_t node_id() const { return _node_id; }
+
+    // Returns the node ID of the bus master.
+    uint32_t bm_node_id() const { return _bm_node_id; }
+
+    // Returns the node ID of the IRM.
+    uint32_t irm_node_id() const { return _irm_node_id; }
+
+    // Returns the node ID of the root node. (Should be the same as
+    // the bus master?)
+    uint32_t root_node_id() const { return _root_node_id; }
+
+    // Return the current bus generation. Incremented on each bus
+    // reset.
+    uint32_t generation() const { return _generation; }
+
+    // Given a path to a firewire device, such as /dev/fw1, returns an
+    // object that can be used to perform memory transactions on the
+    // corresponding remote node.
+    Node(const char *dev, ostream &log = cout);
+
+    ~Node();
   };
 
 }
