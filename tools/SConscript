@@ -3,11 +3,15 @@
 Import('fw_env')
 
 henv = fw_env.Clone()
+henv['LIBPATH'] = [ '#brimstone' ]
+henv['CPPPATH'] += [ '#brimstone/include' ]
+henv['LIBS'] = ['brimstone']
 
-binaries = [ henv.Program('fw_poke', ['fw_poke.c']),
-             henv.Program('fw_peek', ['fw_peek.c']),
-             henv.Program('fw_provoke', ['fw_provoke.c']),
-             henv.Program('fw_crom_dump', ['fw_crom_dump.c']),
+
+binaries = [ henv.Program('fw_poke', ['fw_poke.cpp']),
+             henv.Program('fw_peek', ['fw_peek.cpp']),
+             henv.Program('fw_provoke', ['fw_provoke.cpp']),
+             henv.Program('fw_crom_dump', ['fw_crom_dump.cpp']),
              ]
 
 Install('#bin', binaries)
