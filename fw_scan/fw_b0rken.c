@@ -13,7 +13,7 @@
 
 /* Better do select/poll, but do we ever wake up? */
 #define MAX_RETRIES 5
-const unsigned MAX_REQUEST_SIZE=2048;
+const unsigned MAX_REQUEST_SIZE=0x600;
 
 /** Try again upto MAX_RETRIES if raw1394_read returns EGAIN. */
 int
