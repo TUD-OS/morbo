@@ -5,7 +5,9 @@
 	BITS 16
 	CPU 686
 
-	SECTION .text._start START=0
+	SECTION .text._start
+	EXTERN _init, _bev
+	GLOBAL int10_putc
 
 	;; ROM Header
 	db 0x55, 0xAA
@@ -18,29 +20,75 @@
 	times 0x6 - ($-$$) db 0
 	checksum db 0
 
-	times 0x18 - ($-$$) db 0
-	dw 0			; pci_header
-
 	times 0x1A - ($-$$) db 0
 	dw pnp_header
 
-rom_init:
-	push es
-	mov ax, 0xB800
-	mov es, ax
-	mov word [es:0], 0x0F30	; white 0
-	pop es
+old_ss 	dw 0
+old_sp  dw 0
 
-	;; Do something...
+pnp_far	dw 0
+	dw 0
 	
+rom_init:
+	pushaw			; trash upper 16-bit of registers
+	push ds
+	push es
+	push fs
+	push gs
+	cld
+
+	mov cx, cs
+ 	mov ds, cx
+
+	mov ax, es
+	mov [pnp_far], ax
+	mov [pnp_far + 2], di
+	
+ 	mov es, cx
+
+	call dword _init
+
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popaw
+	mov ax, 100000b		; IPL device attached
 	retf
 
-bootstrap_entry_vector:
-	mov ax, 0xB800
+	;; AL = character
+int10_putc:
+	push bx
+	push es
+	push bp
+
+	mov ah, 0x07
+	push ax
+
+	mov ah, 0x03
+	mov bh, 0
+	int 0x10		; cursor pos -> dx
+
+	mov ax, ss
 	mov es, ax
-	mov word [es:0], 0x0F31	; white 1
-	cli
-	hlt
+	mov bp, sp
+	mov ax, 0x1303
+	mov cx, 1
+	int 0x10
+	pop ax
+
+	pop bp
+	pop es
+	pop bx
+	o32 ret
+
+bootstrap_entry_vector:
+	;; Don't save anything. We return using int 18h.
+	mov ax, cs
+	mov ds, ax
+	mov es, ax
+	call dword _bev
+	int 18h
 
 manufacturer_name db "TUD", 0
 product_name	  db "IEEE 1394 BOOT ROM", 0
@@ -60,7 +108,7 @@ pnp_header:
 	db 0x02					   ; Device base type
 	db 0x00					   ; Device sub type
 	db 0x00					   ; Device interface type
-	db 0xF4					   ; Device indicator
+	db 01110100b				   ; Device indicator
 	dw 0					   ; BCV
 	dw 0					   ; BDV
 	dw bootstrap_entry_vector
