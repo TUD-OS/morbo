@@ -14,10 +14,7 @@ cutil = fenv.StaticLibrary('cutil',
                              'strtoll.c',
                              ])
 
-rom_unfixed = fenv.Command('option-rom.bin-unfixed', 'option-rom.asm', "yasm -f bin -o $TARGET $SOURCE")
-rom = fenv.Command('option-rom.bin', rom_unfixed, "./bin/rom_fixup.py $SOURCE $TARGET")
-
-final = fenv.Program('morbo',
+morbo = fenv.Program('morbo',
                      ['start.asm',
                       'cpuid.asm',
                       'crc16.c',
@@ -37,7 +34,21 @@ final = fenv.Program('morbo',
                      LIBPATH=['.']
                      )
 
-Depends(final, 'morbo.ld')
+Depends(morbo, 'morbo.ld')
 
-Install('#tftp', [ final ])
+Install('#tftp', [ morbo ])
+
+
+rom_env = freestanding_env.Clone()
+
+rom_env['CPPPATH'] = ["#include", "include/"]
+rom_env['LINKFLAGS'] += " -T standalone/option-rom.ld" 
+
+rom = rom_env.Program('option-rom.bin-unfixed',
+                      ['option-rom.asm'])
+
+rom_fixed = fenv.Command('option-rom.bin', rom, "./bin/rom_fixup.py $SOURCE $TARGET")
+
+
+
 # EOF

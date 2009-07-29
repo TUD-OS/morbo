@@ -5,11 +5,11 @@
 	BITS 16
 	CPU 686
 
-	SECTION rom START=0
+	SECTION .text._start START=0
 
 	;; ROM Header
 	db 0x55, 0xAA
-	db section.rom.length >> 9 ; length%512 == 0 is always true for us.
+	db 0		      ; Written after we are assembled. length%512 == 0 is always true for us.
 	jmp rom_init
 
 	;; We use the last byte reserved for the initialization jump
@@ -68,8 +68,5 @@ pnp_header:
 	dw 0			; Static resource information vector
 
 pnp_header_end:
-
-	;; Make the size of the ROM a multiple of 512
-	times (512 - (($-$$) % 512)) & 511 db 0
 
 	;; EOF
