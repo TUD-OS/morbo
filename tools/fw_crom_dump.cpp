@@ -22,13 +22,28 @@ main(int argc, char **argv)
 {
   /* Command line parsing */
   int opt;
+  bool got_guid = false;
+  uint64_t guid = 0;
+  char *dev = NULL;
 
-  while ((opt = getopt(argc, argv, "")) != -1) {
+  while ((opt = getopt(argc, argv, "d:u:")) != -1) {
     switch (opt) {
+    case 'd':
+      dev = optarg;
+      break;
+    case 'u':
+      guid = strtoll(optarg, NULL, 16);
+      got_guid = true;
+      break;
     default:
-      fprintf(stderr, "Usage: %s fw-dev\n", argv[0]);
+      fprintf(stderr, "Usage: %s [-d fw-dev] [-u guid]\n", argv[0]);
       exit(EXIT_FAILURE);
     }
+  }
+
+  if (!got_guid && (dev == NULL)) {
+    cerr << "You need to specify either a GUID or a device string." << endl;
+    return 1;
   }
 
   if (isatty(STDOUT_FILENO)) {
@@ -41,18 +56,25 @@ main(int argc, char **argv)
   std::ofstream devnull;
   devnull.open("/dev/null");
   try {
-    Node node(argv[optind], devnull);
-    
+    Node *node;
+
+    // XXX delete
+    if (got_guid)
+      node = new Node(guid, devnull);
+    else
+      node = new Node(dev, devnull);
+
     unsigned int offset = 0;
     while (offset < 0x100) {
-      uint32_t data = node.quadlet_read(CSR_REGISTER_BASE + CSR_CONFIG_ROM + (offset++)*sizeof(uint32_t));
+      uint32_t data = node->quadlet_read(CSR_REGISTER_BASE + CSR_CONFIG_ROM + (offset++)*sizeof(uint32_t));
       
       cout.write((const char *)&data, sizeof(data));
     }
-    
+
     return 0;
-  } catch (...) {
-    cerr << "Caught exception. Bye. :-/" << endl;
+  } catch (exception *e) {
+    cerr << "Caught exception: '" << e->what()
+	 << "'. Bye. :-/" << endl;
     return 1;
   }
 }
