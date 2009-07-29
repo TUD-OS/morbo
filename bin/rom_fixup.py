@@ -25,8 +25,6 @@ while ((len(rom) % 512) != 0):
 # Set size field in ROM header.
 rom[2] = len(rom) / 512
 
-print(rom[3])
-
 # Clear checksum in ROM image
 rom[6] = 0
 
@@ -35,7 +33,7 @@ checksum = 0
 for byte in rom:
     checksum = (checksum + byte) & 0xFF
 
-rom[6] = 256 - checksum
+rom[6] = (256 - checksum) % 256
 
 rom.tofile(outfile)
 
