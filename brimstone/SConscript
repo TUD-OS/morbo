@@ -2,7 +2,7 @@
 
 env = Environment()
 
-env['CXXFLAGS'] = "-std=c++0x -g -O0"
+env['CXXFLAGS'] = "-std=c++0x -g"
 env['CPPPATH'] = ["include/"]
 
 env.Library('brimstone', ['brimstone.cpp'])

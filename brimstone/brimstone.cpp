@@ -7,7 +7,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
+#include <glob.h>
 
+#include <arpa/inet.h>
 #include <linux/firewire-cdev.h>
 
 #include <cassert>
@@ -45,7 +47,11 @@ namespace Brimstone {
 
   // Node
 
-  Node::Node(const char *dev, ostream &log) : _log(log), _in_flight(0) {
+  Node::Node(const char *dev, ostream &log) 
+    : _log(log),
+      _max_request_size(default_max_request_size),
+      _in_flight()
+  {
     _log << showbase << hex;
     _log << "Node opened: " << dev << endl;
 
@@ -56,6 +62,33 @@ namespace Brimstone {
 
     get_info();
   }
+  
+  Node::Node(uint64_t guid, ostream &log)
+    : _log(log),
+      _max_request_size(default_max_request_size),
+      _in_flight()
+  {
+    glob_t globbuf;
+    memset(&globbuf, 0, sizeof(globbuf));
+    glob("/dev/fw*", 0, NULL, &globbuf);
+
+    for (unsigned i = 0; i < globbuf.gl_pathc; i++) {
+      _fd = open(globbuf.gl_pathv[i], O_RDWR);
+      if (_fd == -1)
+	throw new SyscallError;
+
+      get_info();
+
+      if (this->guid() == guid) {
+	globfree(&globbuf);
+	return;
+      }
+    }
+
+    globfree(&globbuf);
+    throw new NodeNotFoundError;
+  }
+
 
   Node::~Node() {
     close(_fd);
@@ -130,6 +163,7 @@ namespace Brimstone {
     }
   }
 
+  // Request handling
 
   class Request {
   protected:
@@ -245,10 +279,19 @@ namespace Brimstone {
   void
   Node::post_read(uint64_t addr, void *buf, size_t buf_size)
   {
-    _in_flight += 1;
-    _log << _in_flight << " operations in flight." << endl;
-    Request *closure = new ReadRequest (*this, addr, buf, buf_size);
-    closure->retry();
+    if (buf_size > _max_request_size) {
+      // Recursively split transaction if it is too large.
+      post_read(addr, buf, _max_request_size);
+      post_read(addr + _max_request_size, (char *)buf + _max_request_size, buf_size - _max_request_size);
+    } else {
+      _in_flight += 1;
+      _log << _in_flight << " operations in flight." << endl;
+      Request *closure = new ReadRequest (*this, addr, buf, buf_size);
+      closure->retry();
+
+      // Check for already completed requests.
+      poll();
+    }
   }
 
   // Write requests
@@ -290,13 +333,34 @@ namespace Brimstone {
   void
   Node::post_write(uint64_t addr, void *buf, size_t buf_size)
   {
-    _in_flight += 1;
-    _log << _in_flight << " operations in flight." << endl;
-    Request *closure = new WriteRequest (*this, addr, buf, buf_size);
-    closure->retry();
+    if (buf_size > _max_request_size) {
+      // Recursively split transaction if it is too large.
+      post_write(addr, buf, _max_request_size);
+      post_write(addr + _max_request_size, (char *)buf + _max_request_size, buf_size - _max_request_size);
+    } else {
+      _in_flight += 1;
+      _log << _in_flight << " operations in flight." << endl;
+      Request *closure = new WriteRequest (*this, addr, buf, buf_size);
+      closure->retry();
+
+      // Check for already completed requests.
+      poll();
+    }
   }
 
+  // Convenience
+  uint64_t Node::guid() {
+    uint64_t crom_base = 0xfffff0000400ULL;
+    uint32_t ieee1394_id = ntohl(quadlet_read(crom_base + 4));
 
+    if (ieee1394_id != '1394')
+      throw new IncompatibleNodeError;
+
+    uint32_t guid_hi = ntohl(quadlet_read(crom_base + 3*4));
+    uint32_t guid_lo = ntohl(quadlet_read(crom_base + 4*4));
+    
+    return (uint64_t)guid_hi << 32 | guid_lo;
+  }
 }
 
 // EOF

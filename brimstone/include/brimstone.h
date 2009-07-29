@@ -33,6 +33,20 @@ namespace Brimstone {
     }
   };
 
+  class NodeNotFoundError : public BrimstoneException {
+  public:
+    virtual const char *what() const throw() {
+      return "Node not found.";
+    }
+  };
+
+  class IncompatibleNodeError : public BrimstoneException {
+  public:
+    virtual const char *what() const throw() {
+      return "Incompatible node.";
+    }
+  };
+
   // I/O API
 
   class Node {
@@ -50,6 +64,7 @@ namespace Brimstone {
     uint32_t _root_node_id;
     uint32_t _generation;
 
+    unsigned _max_request_size;
     unsigned _in_flight;
 
     void update_bus_info(fw_cdev_event_bus_reset *bus_reset_event);
@@ -59,10 +74,19 @@ namespace Brimstone {
 
   public:
 
-    // Start an asynchronous read transaction.
+    // The default request size is smaller than the maximum request
+    // size of 2048 bytes on a S400 link, because large requests are
+    // problematic for some cards.
+    // TODO Handle slower links gracefully by reducing the request
+    // size accordingly.
+    static const unsigned default_max_request_size = 0x600;
+
+    // Start an asynchronous read transaction. Large transactions are
+    // split automatically.
     void post_read(uint64_t addr, void *buf, size_t buf_size);
 
-    // Start an asynchronous write transaction.
+    // Start an asynchronous write transaction. Large transactions are
+    // split automatically.
     void post_write(uint64_t addr, void *buf, size_t buf_size);
 
     // Poll for events without blocking.
@@ -86,6 +110,9 @@ namespace Brimstone {
       barrier();
     }
 
+    // Return the GUID of the node.
+    uint64_t guid();
+
     int fd() const { return _fd; }
     ostream &log() const { return _log; }
 
@@ -106,10 +133,14 @@ namespace Brimstone {
     // reset.
     uint32_t generation() const { return _generation; }
 
-    // Given a path to a firewire device, such as /dev/fw1, returns an
-    // object that can be used to perform memory transactions on the
-    // corresponding remote node.
+    // Given a path to a firewire device, such as /dev/fw1, constructs
+    // an object that can be used to perform memory transactions on
+    // the corresponding remote node.
     Node(const char *dev, ostream &log = cout);
+
+    // Given a GUID constructs a object that can be used to perform
+    // memory transactions on that node.
+    Node(uint64_t node, ostream &log = cout);
 
     ~Node();
   };
