@@ -42,8 +42,8 @@ main(int argc, char **argv)
   }
 
   if (!got_guid && (dev == NULL)) {
-    cerr << "You need to specify either a GUID or a device string." << endl;
-    return 1;
+    fprintf(stderr, "Usage: %s [-d fw-dev] [-u guid]\n", argv[0]);
+    exit(EXIT_FAILURE);
   }
 
   if (isatty(STDOUT_FILENO)) {
