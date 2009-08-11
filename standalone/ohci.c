@@ -307,10 +307,9 @@ ohci_initialize(const struct pci_device *pci_dev,
     /* Enable all ports. */
     for (unsigned port = 0; port < ohci->total_ports; port++) {
 
-
       phy_page_select(ohci, PORT_STATUS, port);
-
       uint8_t reg0 = phy_read(ohci, 8);
+
       if ((reg0 & PHY_PORT_DISABLED) != 0) {
 	OHCI_INFO("Enabling port %d.\n", port);
 	phy_write(ohci, 8, reg0 & ~PHY_PORT_DISABLED);
