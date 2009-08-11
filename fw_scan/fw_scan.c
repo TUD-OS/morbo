@@ -196,7 +196,7 @@ collect_node_info(unsigned target_no)
 
 	unsigned text_length = root_dir[text_off] >> 16;
 
-        if (text_length > 10)
+        if (text_length > 20)
           break;
 
         for (unsigned i = 0; i < text_length; i++)
