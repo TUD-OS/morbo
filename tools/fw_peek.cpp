@@ -34,7 +34,11 @@ main(int argc, char **argv)
   /* Connect to Firewire device. */
   Node node(argv[optind]);
 
-  printf("%x\n", node.quadlet_read(strtoll(argv[optind+1], NULL, 0)));
+  // printf("%x\n", node.quadlet_read(strtoll(argv[optind+1], NULL, 0)));
+  for (uint32_t cur = 0; cur < (1<<16); cur += 4) {
+    uint32_t data = node.quadlet_read(cur + 0xC0000);
+    write(STDOUT_FILENO, &data, 4);
+  }
 
   return 0;
 }
