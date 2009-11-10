@@ -89,6 +89,7 @@ SConscript(["standalone/SConscript",
             "tools/SConscript",
             "fw_scan/SConscript",
             "brimstone/SConscript",
+            "brimstone2/SConscript",
             ])
 
 # EOF
