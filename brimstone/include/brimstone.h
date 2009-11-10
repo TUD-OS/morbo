@@ -136,11 +136,11 @@ namespace Brimstone {
     // Given a path to a firewire device, such as /dev/fw1, constructs
     // an object that can be used to perform memory transactions on
     // the corresponding remote node.
-    Node(const char *dev, ostream &log = cout);
+    Node(const char *dev, ostream &log = cerr);
 
     // Given a GUID constructs a object that can be used to perform
     // memory transactions on that node.
-    Node(uint64_t node, ostream &log = cout);
+    Node(uint64_t node, ostream &log = cerr);
 
     ~Node();
   };
