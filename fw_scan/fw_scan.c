@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>		/* for PRIx64 and friends */
 #include <string.h>
 
 /* "POSIX" */
@@ -24,7 +25,7 @@
 #include <slang.h>
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
-#include <libelf/gelf.h>
+#include <gelf.h>
 
 /* Our own stuff */
 #include <ohci-constants.h>
@@ -373,7 +374,7 @@ do_boot_screen(struct node_info *boot_node_info)
   unsigned i = 0;
   for (struct memory_info *cur = mem_info; cur != NULL; cur = cur->next, i++) {
     if (cur->type == 1) 	/* Available */
-      SLsmg_printf("mmap[%u] addr %8llx size %8llx type %x\n",
+      SLsmg_printf("mmap[%u] addr %8"PRIx64" size %8"PRIX64" type %x\n",
 		   i, cur->addr, cur->length, cur->type);
   }
 
@@ -481,7 +482,7 @@ do_boot_screen(struct node_info *boot_node_info)
 	GElf_Phdr phdr; gelf_getphdr(elf, p, &phdr);
 	
 	if (phdr.p_type == PT_LOAD) {
-	  SLsmg_printf("LOAD paddr 0x%llx (file 0x%llx, mem 0x%llx)\n",
+	  SLsmg_printf("LOAD paddr 0x%"PRIx64" (file 0x%"PRIx64", mem 0x%"PRIx64")\n",
 		       phdr.p_paddr, phdr.p_filesz, phdr.p_memsz);
 
 	  if (phdr.p_paddr < MODULE_LOAD_LOWER_BOUND) {
@@ -554,7 +555,7 @@ do_boot_screen(struct node_info *boot_node_info)
   /* Modules */
   assert(current_module == total_modules);
   SLsmg_printf("Finalizing module info.\n");
-  SLsmg_printf("String table at 0x%llx\n", module_load_address);
+  SLsmg_printf("String table at 0x%"PRIx64"\n", module_load_address);
   res = raw1394_write_large(fw_handle, node, module_load_address, string_buffer_cur,
                             (quadlet_t *)string_buffer);
   if (res == -1) {
@@ -569,7 +570,7 @@ do_boot_screen(struct node_info *boot_node_info)
   
   /* Write module info. */
   module_load_address += ROUND_UP_PAGE(string_buffer_cur);
-  SLsmg_printf("Module info at 0x%llx\n", module_load_address);
+  SLsmg_printf("Module info at 0x%"PRIx64"\n", module_load_address);
   res = raw1394_write_large(fw_handle, node, module_load_address, sizeof(struct module)*total_modules,
                             (quadlet_t *)module_info);
   if (res == -1) {
@@ -705,7 +706,7 @@ main(int argc, char **argv)
     SLsmg_set_color(COLOR_STATUS);
 
     static int i = 0;
-    SLsmg_printf("Hit q to quit | %d nodes | generation %u | libraw1394 %s | %x/%x %x",
+    SLsmg_printf("Hit q to quit | %d nodes | generation %u | libraw1394 %s | %zx/%zx %zx",
 		 nodes,
 		 raw1394_get_generation(fw_handle), 
 		 raw1394_get_libversion(),
