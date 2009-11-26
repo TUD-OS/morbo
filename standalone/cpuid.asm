@@ -7,6 +7,7 @@
         SECTION .text
 do_cpuid:
         push edi
+	push ebx
         mov edi, edx
         cpuid
         cld
@@ -17,6 +18,7 @@ do_cpuid:
         stosd
         mov eax, edx
         stosd
+	pop ebx
         pop edi
         ret
         
