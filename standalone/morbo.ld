@@ -4,8 +4,7 @@ ENTRY(_start)
 EXTERN(_start)
 
 PHDRS {
-      text PT_LOAD ;
-      data PT_LOAD ;
+      all PT_LOAD ;
 }
 
 SECTIONS
@@ -18,18 +17,15 @@ SECTIONS
   .text :
   {
     *(.text._start)
-    *(.text .text.* .gnu.linkonce.t.* );
-  } : text
+    *(.text .text.*);
+    *(.rodata .rodata.*);
+  } : all
 
   .data :
   {
-      *(.rodata .rodata.* .gnu.linkonce.r.*);
-  } : data
-
-  .bss :
-  {
-     *(.bss  .bss.* .gnu.linkonce.b.*);
-  } : data
+    *(.data .data.*);
+    *(.bss  .bss.*);
+  } : all
 
   /DISCARD/ :
   {

@@ -49,7 +49,7 @@ wait(int ms)
 void
 __exit(unsigned status)
 {
-  const unsigned delay = 30;
+  const unsigned delay = 300;
 
   printf("\nExit with status %u.\n"
          "Rebooting...\n");

@@ -80,7 +80,7 @@ main(uint32_t magic, const struct mbi *mbi)
       struct module *mod = (struct module *)mbi->mods_addr;
       printf("%d modules.\n", mbi->mods_count);
       for (unsigned i = 0; i < mbi->mods_count; i++, mod++) {
-	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
+    	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
       }
     }
 

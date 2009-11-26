@@ -16,7 +16,7 @@
 #include <util.h>
 
 static int
-extract_module(struct mbi *mbi, unsigned *entry_point)
+extract_module(struct mbi *mbi, uint32_t *entry_point)
 {
 
   CHECK3(-30, !mbi->mods_count, "no module to start");
@@ -32,18 +32,20 @@ extract_module(struct mbi *mbi, unsigned *entry_point)
 
   // check elf header
   struct eh *elf = (struct eh *) m->mod_start;
-  assert(*((unsigned *) elf->e_ident) == 0x464c457f || *((short *) elf->e_ident+2) != 0x0101, "ELF header incorrect");
+  printf("e_ident = %x\n", ((uint32_t *)(elf->e_ident))[0]);
+  assert(*((unsigned *) elf->e_ident) == 0x464c457f, "ELF header incorrect");
+  printf("e_type = %x, e_machine = %x, e_version = %x\n", (uint32_t)elf->e_type, (uint32_t)elf->e_machine, (uint32_t)elf->e_version);
   assert(elf->e_type==2 && elf->e_machine==3 && elf->e_version==1, "ELF type incorrect");
   assert(sizeof(struct ph) <= elf->e_phentsize, "e_phentsize to small");
 
-  for (unsigned i=0; i<elf->e_phnum; i++)
-    {
-      struct ph *ph = (struct ph *)(m->mod_start + elf->e_phoff+ i*elf->e_phentsize);
-      if (ph->p_type != 1)
-	continue;
-      memcpy(ph->p_paddr, (char *)(m->mod_start+ph->p_offset), ph->p_filesz);
-      memset(ph->p_paddr+ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
-    }
+  for (unsigned i=0; i<elf->e_phnum; i++) {
+    struct ph *ph = (struct ph *)(m->mod_start + elf->e_phoff+ i*elf->e_phentsize);
+    if (ph->p_type != 1)
+      continue;
+    memcpy(ph->p_paddr, (char *)(m->mod_start+ph->p_offset), ph->p_filesz);
+    memset(ph->p_paddr+ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+  }
+
   *entry_point = elf->e_entry;
   return 0;
 }
@@ -56,7 +58,7 @@ int
 start_module(const struct mbi *mbi)
 {
   int res;
-  unsigned entry_point;
+  uint32_t entry_point;
 
   /* XXX Casting away constness */
   if ((res = extract_module((struct mbi *)mbi, &entry_point)))
