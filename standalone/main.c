@@ -35,7 +35,7 @@ parse_cmdline(const char *cmdline)
   unsigned i;
 
   strncpy(cmdline_buf, cmdline, sizeof(cmdline_buf));
-  
+
   for (token = strtok(cmdline_buf, " "), i = 0;
        token != NULL;
        token = strtok(NULL, " "), i++) {
@@ -139,7 +139,7 @@ main(uint32_t magic, const struct mbi *mbi)
       ohci_poll_events(&ohci);
     }
   }
-  
+
   /* Will not return */
   if (!kernel_entry_point)
     return start_module(mbi);
