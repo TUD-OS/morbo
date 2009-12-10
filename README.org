@@ -1,22 +1,38 @@
--*- Mode: Org -*-
+#+TITLE: NUL: NOVA Userland
+#+AUTHOR: Julian Stecklina
+#+LANGUAGE: en
+#+TODO: TODO INPROGRESS | CLOSED CANCELED
+#+STARTUP: showall hidestars
 
-(Emacs users: use C-c C-a to show everything)
+* Org-Mode HOWTO						   :noexport:
+
+  This file uses Org-Mode, which ships with a nice manual that you can
+  find via the Info browser (C-h i). I recommend reading the 5min
+  tutorial, if you are unfamiliar with Org-Mode:
+  http://orgmode.org/worg/org-tutorials/
+
+  Some hints:
+  C-c C-t: Cycle through TODO states.
+  C-c C-z: Take a note.
+  TAB on section header: Cycle through visibility states.
+  Shift-TAB: Toggle overview.
+  C-c C-e l: Export as LaTeX. :-D
 
 * Morbo
 
-Morbo is a multiboot binary intended to be loaded from Grub or a
-similar multiboot-capable boot loader. It tries to find a
-OHCI-compatible Firewire controller on your PCI bus and enable
-physical DMA. After that it boots the first multiboot module.
+  Morbo is a multiboot binary intended to be loaded from Grub or a
+  similar multiboot-capable boot loader. It tries to find a
+  OHCI-compatible Firewire controller on your PCI bus and enable
+  physical DMA. After that it boots the first multiboot module.
 
-Some diagnostics are printed on the serial console.
+  Some diagnostics are printed on the serial console.
 
-If morbo cannot find an OHCI-compliant controller, it will complain,
-but continue.
+  If morbo cannot find an OHCI-compliant controller, it will complain,
+  but continue.
 
 * A sample grub.conf
 
- title Morbo
- root (nd)
- kernel /morbo
- module /yourkernel
+  title Morbo
+  root (nd)
+  kernel /morbo
+  module /yourkernel
