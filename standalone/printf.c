@@ -77,6 +77,7 @@ vprintf(const char *fmt, va_list ap)
 	    out_char(*s);
         state = PLAIN;
 	break;
+      case 'p':
       case 'x':
         if (longness < 2)
           ull = va_arg(ap, unsigned);
