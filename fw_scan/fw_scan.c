@@ -63,7 +63,7 @@ static int delay = 1;		/* Update every second. */
 static int port = 0;		/* Default port is 0. Should be fine
 				   for most. */
 
-static raw1394handle_t fw_handle;
+static raw1394handle_t fw_handle = NULL;
 static int nodes = 0;
 
 static const char *status_names[] = { "UNDEF",
@@ -632,13 +632,6 @@ main(int argc, char **argv)
     }
   }
 
-  /* Connect to raw1394 device. */
-  fw_handle = raw1394_new_handle_on_port(port);
-  if (fw_handle == NULL) {
-    perror("raw1394_new_handle_on_port");
-    exit(EXIT_FAILURE);
-  }
-
   if (elf_version(EV_CURRENT) == EV_NONE ) {
     /* library out of date */
     fprintf(stderr, "Elf library out of date!\n");
@@ -674,6 +667,14 @@ main(int argc, char **argv)
       SLsmg_reinit_smg ();
       screen_size_changed = false;
       /* Redraw... */
+    }
+
+    /* Connect to raw1394 device. */
+    if (fw_handle) raw1394_destroy_handle(fw_handle);
+    fw_handle = raw1394_new_handle_on_port(port);
+    if (fw_handle == NULL) {
+      perror("raw1394_new_handle_on_port");
+      exit(EXIT_FAILURE);
     }
 
     struct node_info *info = collect_all_info(&nodes);
