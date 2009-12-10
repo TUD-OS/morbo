@@ -437,7 +437,7 @@ ohci_initialize(const struct pci_device *pci_dev,
     OHCI_INFO("No bus reset (or a lot of them)? Things may be b0rken.\n");
 
   /* Print GUID for easy reference. */
-  OHCI_INFO("GUID: %llx\n", (uint64_t)(OHCI_REG(ohci, GUIDHi)) << 32 | OHCI_REG(ohci, GUIDLo));
+  OHCI_INFO("GUID: 0x%llx\n", (uint64_t)(OHCI_REG(ohci, GUIDHi)) << 32 | OHCI_REG(ohci, GUIDLo));
 
   return true;
 }
@@ -470,8 +470,8 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   OHCI_REG(ohci, PhyReqFilterHiSet) = ~0U;
   OHCI_REG(ohci, PhyReqFilterLoSet) = ~0U;
 
-  printf("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
-  printf("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
+  OHCI_INFO("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
+  OHCI_INFO("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
 
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
   uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
