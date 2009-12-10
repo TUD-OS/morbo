@@ -105,25 +105,39 @@ static void
 ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 {
   assert(crom != 0, "CROM NULL");
+  assert(((uint32_t)crom & 1023) == 0, "Misaligned Config ROM");
 
-  if (((uint32_t)crom) & 1023) {
-    OHCI_INFO("Misaligned Config ROM!\n");
-    /* XXX Should abort here. */
-  }
-
-  /* Update Info on OHC. This is done by writing to the address
-     pointed to by the ConfigROMmap register. */
-  uint32_t *phys_crom = (uint32_t *)OHCI_REG(ohci, ConfigROMmap);
-  for (unsigned i = 0; i < CONFIG_ROM_SIZE; i ++)
-    phys_crom[i] = ntohl(crom->field[i]);
-
-  OHCI_REG(ohci, HCControlSet) = HCControl_BIBimageValid;
-
+  OHCI_INFO("ConfigROM at %p! linkEnable = %s\n", crom->field, (OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) ? "ON" : "OFF");
   if ((OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) == 0) {
     /* We are not up yet, so set these manually. */
     OHCI_REG(ohci, ConfigROMhdr) = crom->field[0];
     OHCI_REG(ohci, BusOptions)   = crom->field[2];
   }
+
+  /* Words must be in network byte order (big endian). */
+  for (unsigned i = 0; i < CONFIG_ROM_SIZE; i++)
+    crom->field[i] = ntohl(crom->field[i]);
+
+  /* XXX The TI chips I have (104c:8023) seem to reload ConfigROMhdr
+     and BusOptions from memory (on bus reset?) and get the byte
+     swapping wrong. The result is that block reads on the ConfigROM,
+     which are served completely from memory have the correct values
+     and quadlet reads return these two words in the wrong byte
+     order. As the spec mandates that the ConfigROM must be read using
+     quadlet reads, other nodes fail to parse our ConfigROM.
+
+     By byte swapping these two fields in memory, they are fetched in
+     the correct order and quadlet reads return the right value. If
+     someone reads our ConfigROM using block reads, he now gets these
+     two fields byte swapped, but he violates the spec anyway.
+  */
+  crom->field[0] = ntohl(crom->field[0]);
+  crom->field[2] = ntohl(crom->field[2]);
+
+  /* Reload the ConfigROM */
+  OHCI_REG(ohci, ConfigROMmap) = (uint32_t)(crom->field);
+  OHCI_REG(ohci, HCControlSet) = HCControl_BIBimageValid;
+
 }
 
 static void
@@ -413,11 +427,13 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   /* Set Config ROM */
   OHCI_INFO("Updating config ROM.\n");
+
   ohci_generate_crom(ohci, &crom);
   ohci_load_crom(ohci, &crom);
 
   /* enable link */
   OHCI_REG(ohci, HCControlSet) = HCControl_linkEnable;
+
   /* Wait for link to come up. */
   wait_loop(ohci, HCControlSet, HCControl_linkEnable, HCControl_linkEnable, MISC_TIMEOUT);
   OHCI_INFO("Link is up. Force bus reset.\n");
