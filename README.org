@@ -30,6 +30,8 @@
   If morbo cannot find an OHCI-compliant controller, it will complain,
   but continue.
 
+** TODO Make Morbo always extract the first ELF image.
+
 * A sample grub.conf
 
   title Morbo
