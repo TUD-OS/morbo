@@ -94,10 +94,10 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
   crom->field[16] = ' v1\0';
   crom->field[10] |= crc16(&(crom->field[11]), 6);
 
-  crom->field[17] = 0x002 << 16; /* 1 words follow */
+  crom->field[17] = 0x001 << 16; /* 1 words follow */
+  OHCI_INFO("MBI @ %p\n", &multiboot_info);
   crom->field[18] = (uint32_t)&multiboot_info; /* Pointer to pointer to multiboot info */
-  crom->field[19] = (uint32_t)&kernel_entry_point; /* Pointer to uint32_t */
-  crom->field[17] |= crc16(&(crom->field[18]), 2);
+  crom->field[17] |= crc16(&(crom->field[18]), 1);
 
 }
 

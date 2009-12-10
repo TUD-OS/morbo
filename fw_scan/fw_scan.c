@@ -92,7 +92,6 @@ struct node_info {
   uint64_t guid;
 
   uint32_t multiboot_ptr;	/* Pointer to pointer */
-  uint32_t kernel_entry_point;	/* Pointer to kernel_entry_point uint32_t */
 
   char info_str[32];
 };
@@ -181,6 +180,8 @@ collect_node_info(unsigned target_no)
   bool model_ok  = false;
   bool boot_info = false;
 
+  bool info_found = false;
+
   for (unsigned i = 1; i <= root_dir_length; i++) {
     switch (root_dir[i] >> 24) {
     case 0x03:			/* Vendor ID */
@@ -191,6 +192,7 @@ collect_node_info(unsigned target_no)
       break;
     case 0x81:			/* Text descriptor */
       {
+	if (info_found) break;
 	unsigned text_off = i + (root_dir[i] & 0xFFFFFF);
 	if (text_off > 32)
 	  break;
@@ -207,6 +209,7 @@ collect_node_info(unsigned target_no)
 	strncpy(info->info_str, (char *)(&root_dir[text_off + 3]),
 		MIN(sizeof(info->info_str),
 		    text_length*4));
+	info_found = true;
       }
       break;
     case MORBO_INFO_DIR:
@@ -216,7 +219,6 @@ collect_node_info(unsigned target_no)
 	  break;;
 	
 	info->multiboot_ptr = root_dir[info_off + 1];
-	info->kernel_entry_point = root_dir[info_off + 2];
 	boot_info = true;
       }
       break;
@@ -274,7 +276,7 @@ do_overview_screen(struct node_info *info)
 		 );
 
     if (info->bootable) {
-      SLsmg_printf(" | pEntry %08x MBI %08x", info->kernel_entry_point, info->multiboot_ptr);
+      SLsmg_printf(" | MBI %08x", info->multiboot_ptr);
     }
 
     SLsmg_erase_eol();
@@ -591,14 +593,8 @@ do_boot_screen(struct node_info *boot_node_info)
 
   SLsmg_printf("Starting the box...\n");
   SLsmg_refresh();
-  
-  res = raw1394_write_retry(fw_handle, node, boot_node_info->kernel_entry_point, sizeof(uint32_t),
-                            (quadlet_t *)&entry_point);
-  if (res == -1) {
-    SLsmg_printf("Could not write ELF segment: %s\n", strerror(errno));
-    /* XXX Cleanup */
-    goto done;
-  }
+
+  /* XXX ?! */
 
  fail: {}
  done:
