@@ -29,7 +29,7 @@
 #define PHY_TIMEOUT   10000
 #define MISC_TIMEOUT  10000
 
-// #define FANCY_WAIT
+//#define FANCY_WAIT
 
 /* Globals */
 
@@ -110,13 +110,13 @@ ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
     OHCI_INFO("Misaligned Config ROM!\n");
     /* XXX Should abort here. */
   }
-  
+
   /* Update Info on OHC. This is done by writing to the address
      pointed to by the ConfigROMmap register. */
   uint32_t *phys_crom = (uint32_t *)OHCI_REG(ohci, ConfigROMmap);
   for (unsigned i = 0; i < CONFIG_ROM_SIZE; i ++)
     phys_crom[i] = ntohl(crom->field[i]);
-  
+
   OHCI_REG(ohci, HCControlSet) = HCControl_BIBimageValid;
 
   if ((OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) == 0) {
@@ -221,7 +221,7 @@ ohci_check_version(struct ohci_controller *ohci)
 
   printf("GUID = %s, version = %x, revision = %x\n",
 	 guid_rom ? "yes" : "no?!", ohci_version, ohci_revision);
-  
+
   if ((ohci_version <= 1) && (ohci_revision < 10)) {
     printf("Controller implements OHCI %d.%d. But we require at least 1.10.\n",
 	   ohci_version, ohci_revision);
@@ -239,13 +239,10 @@ ohci_initialize(const struct pci_device *pci_dev,
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
 
-  ohci->as_request_filter  = ~0LLU; /* Enable access from all nodes */
-  ohci->phy_request_filter = ~0LLU; /* to all memory. */
-
   assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
   printf("OHCI registers are at 0x%x.\n", ohci->ohci_regs);
-  printf("OHCI (%x:%x) is a %s.\nQuirks: %x\n", 
+  printf("OHCI (%x:%x) is a %s.\nQuirks: %x\n",
 	 pci_dev->db->vendor_id,
 	 pci_dev->db->device_id,
 	 pci_dev->db->device_name,
@@ -262,7 +259,7 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   /* Do a softreset. */
   ohci_softreset(ohci);
-  
+
   /* Disable linkEnable to be able to configure the low level stuff. */
   OHCI_REG(ohci, HCControlClear) = HCControl_linkEnable;
   wait_loop(ohci, HCControlSet, HCControl_linkEnable, 0, MISC_TIMEOUT);
@@ -276,13 +273,69 @@ ohci_initialize(const struct pci_device *pci_dev,
      refer to Chapter 3.3.3 in the OHCI spec. */
   OHCI_REG(ohci, HCControlSet) = HCControl_postedWriteEnable;
 
-  /* Enable LinkPower Status. It should be on already, but what the
-     heck... If it is disabled, only some OHCI registers are
-     accessible and we cannot communicate with the PHY. */
-  OHCI_INFO("Enable LPS.\n");
-  OHCI_REG(ohci, HCControlSet) = HCControl_LPS;
-  wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
-  OHCI_INFO("LPS is up.\n");
+  /* XXX BEGIN CRAP CODE Enable LPS. This is more complicated than it
+     should be, but hardware sucks... */
+  unsigned lps_retries;
+  for (lps_retries = 10; lps_retries > 0; lps_retries--) {
+    unsigned wait_more_cnt = 10;
+    uint32_t phycontrol, intevent;
+
+    OHCI_INFO("%d retries left.\n", lps_retries);
+
+    OHCI_REG(ohci, HCControlSet) = HCControl_LPS;
+    wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
+
+    wait(50);			/* SCLK should be up by now */
+    OHCI_INFO("Grace period done.\n");
+
+    OHCI_REG(ohci, IntEventClear) = ~0U;
+    OHCI_REG(ohci, PhyControl) = PhyControl_Read(1);
+
+  wait_some_more:
+    wait(50);
+
+    phycontrol = OHCI_REG(ohci, PhyControl);
+    intevent   = OHCI_REG(ohci, IntEventSet);
+    if (((phycontrol & PhyControl_ReadDone) == 0) &&
+	((intevent   & regAccessFail) == 0)) {
+      /* Nothing happened yet. This can mean two things: a) the read
+	 is not completed, which is unlikely given that we waited 10ms
+	 for it. b) SCLK did not start and the PHY is not
+	 available. In the latter case regAccessFail should be set,
+	 but this does not seem to work. */
+      OHCI_INFO("SCLK seems not to be running.\n");
+      /* Start over. */
+      goto next;
+    }
+
+    if ((intevent & regAccessFail) != 0) {
+      /* SCLK has not started yet. Wait some more. */
+      OHCI_INFO("regAccessFail while waiting for SCLK to start.\n");
+      if (wait_more_cnt-- > 0)
+	goto wait_some_more;
+      else {
+	OHCI_INFO("LPS did not come up.\n");
+	return false;
+      }
+    }
+
+    /* Read done. */
+    break;
+
+  next:
+    /* Disable LPS */
+    OHCI_REG(ohci, HCControlClear) = HCControl_LPS;
+    OHCI_INFO("Waiting for LPS clear.\n");
+    wait_loop(ohci, HCControlSet, HCControl_LPS, 0, MISC_TIMEOUT);
+    OHCI_INFO("Done.\n");
+  }
+
+  if (lps_retries == 0) {
+    OHCI_INFO("LPS did not come up.\n");
+    return false;
+  }
+
+  /* XXX END CRAP CODE */
 
   /* Disable contender bit */
   uint8_t phy4 = phy_read(ohci, 4);
@@ -327,19 +380,16 @@ ohci_initialize(const struct pci_device *pci_dev,
     OHCI_INFO("IEEE1394a enhancements are already configured.\n");
   }
 
-  // wait some time to let device enable the link
-  // wait(50);
-
   // reset Link Control register
-  OHCI_REG(ohci, LinkControlClear) = 0xFFFFFFFF;
+  OHCI_REG(ohci, LinkControlClear) = 0xFFFFFFFFU;
 
   // accept requests from all nodes
-  OHCI_REG(ohci, AsReqFilterHiSet) = ohci->as_request_filter >> 32;
-  OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
+  OHCI_REG(ohci, AsReqFilterHiSet) = ~0U;
+  OHCI_REG(ohci, AsReqFilterLoSet) = ~0U;
 
   // accept physical requests from all nodes in our local bus
-  OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
-  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
+  OHCI_REG(ohci, PhyReqFilterHiSet) = ~0U;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ~0U;
 
   // allow access up to 0xffff00000000
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
@@ -370,7 +420,21 @@ ohci_initialize(const struct pci_device *pci_dev,
   OHCI_REG(ohci, HCControlSet) = HCControl_linkEnable;
   /* Wait for link to come up. */
   wait_loop(ohci, HCControlSet, HCControl_linkEnable, HCControl_linkEnable, MISC_TIMEOUT);
-  OHCI_INFO("Link is up.\n");
+  OHCI_INFO("Link is up. Force bus reset.\n");
+
+  /* Force bus reset and wait for it to complete and then some more
+     for the link to calm down. */
+  uint8_t generation = (OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF;
+  unsigned poll_count = 0;
+  ohci_force_bus_reset(ohci);
+
+  while (poll_count++ < 1000) {
+    ohci_poll_events(ohci);
+    wait(1);
+  }
+
+  if (generation == ((OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF))
+    OHCI_INFO("No bus reset (or a lot of them)? Things may be b0rken.\n");
 
   /* Print GUID for easy reference. */
   OHCI_INFO("GUID: %llx\n", (uint64_t)(OHCI_REG(ohci, GUIDHi)) << 32 | OHCI_REG(ohci, GUIDLo));
@@ -386,29 +450,29 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   /* We have to clear ContextControl.run */
   OHCI_REG(ohci, AsReqTrContextControlClear) = 1 << 15;
   OHCI_REG(ohci, AsRspTrContextControlClear) = 1 << 15;
-  
+
   /* Wait for active DMA to finish. (We don't do DMA... ) */
   wait_loop(ohci, AsReqTrContextControlSet, ATactive, 0, 10);
   wait_loop(ohci, AsRspTrContextControlSet, ATactive, 0, 10);
-  
+
   /* Wait for completion of SelfID phase. */
   assert(OHCI_REG(ohci, LinkControlSet) & LinkControl_rcvSelfID,
 	 "selfID receive borken");
   wait_loop(ohci, IntEventSet, selfIDComplete, selfIDComplete, 1000);
   OHCI_INFO("Bus reset complete. Clearing event bits.\n");
-  
+
   /* We are done. Clear bus reset bit. */
   OHCI_REG(ohci, IntEventClear) = busReset;
-  
+
   /* Reset request filters. They are cleared on bus reset. */
-  OHCI_REG(ohci, AsReqFilterHiSet) = ohci->as_request_filter >> 32;
-  OHCI_REG(ohci, AsReqFilterLoSet) = ohci->as_request_filter & 0xFFFFFFFF;
-  OHCI_REG(ohci, PhyReqFilterHiSet) = ohci->phy_request_filter >> 32;
-  OHCI_REG(ohci, PhyReqFilterLoSet) = ohci->phy_request_filter & 0xFFFFFFFF;
+  OHCI_REG(ohci, AsReqFilterHiSet) = ~0U;
+  OHCI_REG(ohci, AsReqFilterLoSet) = ~0U;
+  OHCI_REG(ohci, PhyReqFilterHiSet) = ~0U;
+  OHCI_REG(ohci, PhyReqFilterLoSet) = ~0U;
 
   printf("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
   printf("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
-  
+
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
   uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
   OHCI_INFO("SelfID generation 0x%x, bytes 0x%x\n",
@@ -426,7 +490,7 @@ void
 ohci_poll_events(struct ohci_controller *ohci)
 {
   uint32_t intevent = OHCI_REG(ohci, IntEventSet); /* Unmasked event bitfield */
-    
+
   if ((intevent & busReset) != 0) {
     OHCI_INFO("Bus reset!\n");
     ohci_handle_bus_reset(ohci);
