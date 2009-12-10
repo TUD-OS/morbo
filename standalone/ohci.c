@@ -159,7 +159,7 @@ phy_read(struct ohci_controller *ohci, uint8_t addr)
 }
 
 /** Write a OHCI PHY register.
- * \param dev the host controller.
+ * \param ohci the host controller.
  * \param addr the address to write to.
  * \param data the data to write.
  */
@@ -181,7 +181,7 @@ phy_page_select(struct ohci_controller *ohci, enum phy_page page, uint8_t port)
 }
 
 /** Force a bus reset.
- * \param dev the host controller.
+ * \param ohci the host controller.
  */
 void
 ohci_force_bus_reset(struct ohci_controller *ohci)
