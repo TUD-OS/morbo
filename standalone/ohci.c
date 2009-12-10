@@ -187,8 +187,6 @@ void
 ohci_force_bus_reset(struct ohci_controller *ohci)
 {
   uint8_t phy1 = phy_read(ohci, 1);
-  out_description("phy1 = ", phy1);
-  OHCI_INFO("Bus reset.\n");
 
   /* Enable IBR in Phy 1 */
   /* XXX Set RHB to 0? */

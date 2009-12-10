@@ -32,9 +32,7 @@ extract_module(struct mbi *mbi, uint32_t *entry_point)
 
   // check elf header
   struct eh *elf = (struct eh *) m->mod_start;
-  printf("e_ident = %x\n", ((uint32_t *)(elf->e_ident))[0]);
   assert(*((unsigned *) elf->e_ident) == 0x464c457f, "ELF header incorrect");
-  printf("e_type = %x, e_machine = %x, e_version = %x\n", (uint32_t)elf->e_type, (uint32_t)elf->e_machine, (uint32_t)elf->e_version);
   assert(elf->e_type==2 && elf->e_machine==3 && elf->e_version==1, "ELF type incorrect");
   assert(sizeof(struct ph) <= elf->e_phentsize, "e_phentsize to small");
 
