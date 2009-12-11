@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cinttypes>
 #include <cstdint>
+#include <cstring>
 
 #include <getopt.h>
 #include <unistd.h>
@@ -15,7 +16,18 @@
 
 #include <ohci-constants.h>
 
-static char usage[] = "Usage: %s [-q] [-p port] guid/nodeno address length\n";
+static char usage_peek[] = "Usage: %s [-q] [-p port] guid/nodeno address length\n";
+static char usage_poke[] = "Usage: %s [-q] [-p port] guid/nodeno address\n";
+
+const char *strippath(const char *name)
+{
+  char *s = strrchr(name, '/');
+
+  if (s == NULL)
+    return name;
+  else
+    return s+1;
+}
 
 int
 main(int argc, char **argv)
@@ -24,6 +36,20 @@ main(int argc, char **argv)
   int opt;
   unsigned port = 0;
   bool quadletwise = false;
+
+  enum { INVALID, PEEK, POKE } mode = INVALID;
+
+  const char *name = strippath(argv[0]);
+  if (strcmp(name, "fw_peek") == 0) {
+    mode = PEEK;
+  } else if (strcmp(name, "fw_poke") == 0) {
+    mode = POKE;
+  }
+
+  if (mode == INVALID) {
+    fprintf(stderr, "Could not decide, whether we are fw_peek or fw_poke.\n");
+    return EXIT_FAILURE;
+  }
 
   while ((opt = getopt(argc, argv, "qp:")) != -1) {
     switch (opt) {
@@ -34,14 +60,15 @@ main(int argc, char **argv)
       port = atoi(optarg);
       break;
     default:
-      fprintf(stderr, usage, argv[0]);
-      exit(EXIT_FAILURE);
+      goto print_usage;
     }
   }
 
-  if ((argc - optind) != 3) {
-    fprintf(stderr, usage, argv[0]);
-    exit(EXIT_FAILURE);
+  if (((mode == PEEK) && (argc - optind) != 3) ||
+      ((mode == POKE) && (argc - optind) != 2)) {
+  print_usage:
+    fprintf(stderr, (mode == PEEK) ? usage_peek : usage_poke, argv[0]);
+    return EXIT_FAILURE;
   }
 
   uint64_t guid    = strtoull(argv[optind],     NULL, 0);
@@ -52,7 +79,7 @@ main(int argc, char **argv)
 
   if (fw_handle == NULL) {
     perror("raw1394_new_handle_on_port");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   nodeid_t target;

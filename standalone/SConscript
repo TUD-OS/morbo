@@ -24,7 +24,7 @@ morbo = fenv.Program('morbo',
                       'pci.c',
                       'pci_db.c',
                       'printf.c',
-                      'main.c',
+                      'morbo.c',
                       'version.c',
                       'serial.c',
                       'ohci.c',
@@ -49,7 +49,8 @@ rom = rom_env.Program('option-rom.bin-unfixed',
                       ['option-rom.asm',
                        'or-main.c'])
 
-rom_fixed = fenv.Command('option-rom.bin', rom, "./bin/rom_fixup.py $SOURCE $TARGET")
+rom_fixed = fenv.Command('option-rom.bin', ['rom_fixup.py', rom],
+                         "${SOURCES[0]} ${SOURCES[1:]} $TARGET")
 
 
 
