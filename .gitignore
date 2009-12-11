@@ -2,6 +2,7 @@ bin
 tftp
 *~
 *.o
+*.pyc
 .scons*
 .sconf_temp
 config.log
