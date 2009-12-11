@@ -67,13 +67,14 @@ main(int argc, char **argv)
   if (((mode == PEEK) && (argc - optind) != 3) ||
       ((mode == POKE) && (argc - optind) != 2)) {
   print_usage:
-    fprintf(stderr, (mode == PEEK) ? usage_peek : usage_poke, argv[0]);
+    fprintf(stderr, (mode == PEEK) ? usage_peek : usage_poke, name);
     return EXIT_FAILURE;
   }
 
   uint64_t guid    = strtoull(argv[optind],     NULL, 0);
   uint64_t address = strtoull(argv[optind + 1], NULL, 0);
-  uint64_t length  = strtoull(argv[optind + 2], NULL, 0);
+  uint64_t length;
+  if (mode == PEEK) length = strtoull(argv[optind + 2], NULL, 0);
 
   raw1394handle_t fw_handle = raw1394_new_handle_on_port(port);
 
@@ -113,12 +114,36 @@ main(int argc, char **argv)
   }
 
   unsigned step = quadletwise ? 4 : 512;
-  for (uint64_t cur = address; cur < address+length; cur += step) {
-    quadlet_t buf[step/sizeof(quadlet_t)];
-    size_t size = (cur + step > address+length) ? (address+length - cur) : step;
-    int res = raw1394_read(fw_handle, target, cur, size, buf);
-    if (res != 0) { perror("read data"); return -1; }
-    write(STDOUT_FILENO, buf, size);
+  quadlet_t buf[step/sizeof(quadlet_t)];
+
+  switch (mode) {
+  case PEEK:
+    for (uint64_t cur = address; cur < address+length; cur += step) {
+      size_t size = (cur + step > address+length) ? (address+length - cur) : step;
+      int res = raw1394_read(fw_handle, target, cur, size, buf);
+      if (res != 0) { perror("read data"); return EXIT_FAILURE; }
+      if (write(STDOUT_FILENO, buf, size) < 0) {
+	perror("write");
+	return EXIT_FAILURE;
+      }
+    }
+    break;
+  case POKE:
+    for (uint64_t cur = address;;cur += step) {
+      ssize_t size = read(STDIN_FILENO, buf, step);
+      if (size == 0)
+	break;
+      if (size < 0) {
+	perror("read");
+	return EXIT_FAILURE;
+      }
+
+      int res = raw1394_write(fw_handle, target, cur, size, buf);
+      if (res != 0) { perror("write data"); return EXIT_FAILURE; }
+
+      if (size < step)
+	break;
+    }
   }
 
   return 0;
