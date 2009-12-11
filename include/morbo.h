@@ -7,7 +7,7 @@
 /* Leaf types */
 
 #define MORBO_VENDOR_ID 0xCAFFEEU 
-#define MORBO_MODEL_ID  0x000001U
+#define MORBO_MODEL_ID  0x000002U
 
 #define MORBO_INFO_DIR  ((2 << 6) | 0x38)
 

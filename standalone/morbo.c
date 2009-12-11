@@ -19,7 +19,6 @@
 static bool multiboot_loader = false;
 
 volatile const struct mbi *multiboot_info = 0;
-volatile uint32_t kernel_entry_point = 0;
 
 /* Configuration (set by command line parser) */
 static bool be_verbose = true;
@@ -65,7 +64,7 @@ parse_cmdline(const char *cmdline)
 }
 
 int
-main(uint32_t magic, const struct mbi *mbi)
+main(uint32_t magic, struct mbi *mbi)
 {
   multiboot_loader = (magic == MBI_MAGIC);
 
@@ -87,9 +86,9 @@ main(uint32_t magic, const struct mbi *mbi)
     	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
       }
     }
-
   } else {
-    printf("Not loaded by Multiboot-compliant loader. No command line parsing.\n");
+    printf("Not loaded by Multiboot-compliant loader. Bye.\n");
+    return 1;
   }
 
   /* Check for APIC support */
@@ -139,19 +138,13 @@ main(uint32_t magic, const struct mbi *mbi)
 
   if (do_wait) {
     printf("Polling for events until we are kicked in the nuts.\n");
-    while (!kernel_entry_point) {
+    volatile uint32_t *modules = &mbi->mods_count;
+    *modules = 0;
+    while (*modules == 0) {
       ohci_poll_events(&ohci);
     }
   }
 
-  /* Will not return */
-  if (!kernel_entry_point)
-    return start_module(mbi);
-  else if (multiboot_loader)
-    jmp_multiboot((const struct mbi *)multiboot_info, kernel_entry_point);
-  else {
-    printf("Not started with Multiboot-compliant loader and nothing to do.\n");
-  }
-
-  return 0;
+  /* Will not return if successful. */
+  return start_module(mbi);
 }
