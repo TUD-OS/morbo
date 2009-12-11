@@ -72,13 +72,22 @@ if not conf.CheckPKG('libraw1394'):
        print('Could not find libraw1394')
        Exit(1)
 
+build_fw_scan = True
+
 if not conf.CheckCHeader('slang.h'):
        print('Could not find slang headers.')
-       Exit(1)
+       build_fw_scan = False
+
+if not conf.CheckCHeader('gc.h'):
+       print('Could not find boehm-gc headers.')
+       build_fw_scan = False
 
 if not conf.CheckFunc('SLsmg_init_smg'):
        print('Could not link to slang.')
-       Exit(1)
+       build_fw_scan = False
+
+if not build_fw_scan:
+       print('fw_scan will not be built.')
 
 fw_env = conf.Finish()
 
@@ -86,8 +95,9 @@ Export('freestanding_env')
 Export('fw_env')
 
 SConscript(["standalone/SConscript",
-            "tools/SConscript",
-            "fw_scan/SConscript",
-            ])
+            "tools/SConscript"])
+
+if build_fw_scan:
+       SConscript(["fw_scan/SConscript"])
 
 # EOF
