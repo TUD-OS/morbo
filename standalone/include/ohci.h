@@ -15,6 +15,7 @@ struct ohci_controller {
 
   uint8_t total_ports;
   bool enhanced_phy_map;
+  bool posted_writes;
 
 };
 

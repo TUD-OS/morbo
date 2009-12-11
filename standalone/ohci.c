@@ -253,6 +253,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   assert(ohci != NULL, "Invalid pointer");
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
+  ohci->posted_writes = posted_writes;
 
   assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
@@ -489,6 +490,18 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 
   OHCI_INFO("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
   OHCI_INFO("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
+
+  if (~0U != (OHCI_REG(ohci, PhyReqFilterLoSet) & OHCI_REG(ohci, PhyReqFilterHiSet) &
+	      OHCI_REG(ohci, AsReqFilterLoSet)  & OHCI_REG(ohci, AsReqFilterHiSet))) {
+    OHCI_INFO("XXX Something is seriously b0rken.\n");
+    wait(1000);
+    OHCI_INFO("Trying to reinitialize the device...\n");
+    if (!ohci_initialize(ohci->pci, ohci, ohci->pci)) {
+      OHCI_INFO("Reinitialization failed.\n");
+      __exit(-1);
+    }
+    return;
+  }
 
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
   uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
