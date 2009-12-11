@@ -26,6 +26,7 @@ static bool be_verbose = true;
 static bool force_enable_apic = true;
 static bool keep_going = false;
 static bool do_wait = false;
+static bool posted_writes = false;
 
 void
 parse_cmdline(const char *cmdline)
@@ -52,6 +53,9 @@ parse_cmdline(const char *cmdline)
     } else if (strcmp(token, "keepgoing") == 0) {
       printf("Errors will be ignored. You obviously like playing risky.\n");
       keep_going = true;
+    } else if (strcmp(token, "postedwrites") == 0) {
+      printf("Posted writes will be enabled. Disable them, if you experience problems.\n");
+      posted_writes = true;
     } else if (strcmp(token, "wait") == 0) {
       do_wait = true;
     } else {
@@ -116,7 +120,7 @@ main(uint32_t magic, const struct mbi *mbi)
     printf("OK\n");
   }
 
-  if (!ohci_initialize(&pci_ohci, &ohci)) {
+  if (!ohci_initialize(&pci_ohci, &ohci, posted_writes)) {
     printf("Could not initialize controller.\n");
     goto error;
   } else {

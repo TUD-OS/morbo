@@ -45,7 +45,7 @@ uint32_t selfid_buf[504];
 #define OHCI_INFO(msg, args...) printf("OHCI: " msg, ## args)
 
 /* Access to OHCI registers */
-#define OHCI_REG(dev, reg) (dev->ohci_regs[reg/4])
+#define OHCI_REG(dev, reg) ((dev)->ohci_regs[(reg)/4])
 
 
 #define DIR_TYPE_IMM    0
@@ -247,7 +247,8 @@ ohci_check_version(struct ohci_controller *ohci)
 
 bool
 ohci_initialize(const struct pci_device *pci_dev,
-		struct ohci_controller *ohci)
+		struct ohci_controller *ohci,
+		bool posted_writes)
 {
   assert(ohci != NULL, "Invalid pointer");
   ohci->pci = pci_dev;
@@ -281,11 +282,11 @@ ohci_initialize(const struct pci_device *pci_dev,
   /* Disable stuff we don't want/need, including byte swapping. */
   OHCI_REG(ohci, HCControlClear) = HCControl_noByteSwapData | HCControl_ackTardyEnable;
 
-  /* Enable posted writes. With posted writes enabled, the controller
+  /* Enable (or disable) posted writes. With posted writes enabled, the controller
      may return ack_complete for physical write requests, even if the
      data has not been written yet. For coherency considerations,
      refer to Chapter 3.3.3 in the OHCI spec. */
-  OHCI_REG(ohci, HCControlSet) = HCControl_postedWriteEnable;
+  OHCI_REG(ohci, posted_writes ? HCControlSet : HCControlClear) = HCControl_postedWriteEnable;
 
   /* XXX BEGIN CRAP CODE Enable LPS. This is more complicated than it
      should be, but hardware sucks... */

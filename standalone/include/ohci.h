@@ -20,7 +20,8 @@ struct ohci_controller {
 
 void    ohci_poll_events(struct ohci_controller *ohci);
 bool    ohci_initialize(const struct pci_device *pci_dev,
-			struct ohci_controller *ohci);
+			struct ohci_controller *ohci,
+			bool posted_writes);
 
 uint8_t ohci_wait_nodeid(struct ohci_controller *ohci);
 void    ohci_force_bus_reset(struct ohci_controller *ohci);
