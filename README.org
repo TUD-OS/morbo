@@ -1,4 +1,4 @@
-#+TITLE: NUL: NOVA Userland
+#+TITLE: Morbo \\ Your Systems Programming Companion
 #+AUTHOR: Julian Stecklina
 #+LANGUAGE: en
 #+TODO: TODO INPROGRESS | CLOSED CANCELED
@@ -18,19 +18,20 @@
   Shift-TAB: Toggle overview.
   C-c C-e l: Export as LaTeX. :-D
 
-* Morbo
+* Introduction
 
   Morbo is a multiboot binary intended to be loaded from Grub or a
   similar multiboot-capable boot loader. It tries to find a
   OHCI-compatible Firewire controller on your PCI bus and enable
-  physical DMA. After that it boots the first multiboot module.
+  physical DMA. After that it boots the first multiboot
+  module. Diagnostics are printed on the serial console.
 
-  Some diagnostics are printed on the serial console.
-
-  If morbo cannot find an OHCI-compliant controller, it will complain,
+  If Morbo cannot find an OHCI-compliant controller, it will complain,
   but continue.
 
-** TODO Make Morbo always extract the first ELF image.
+* TODO Make Your Own Morbo USB Pen
+
+* TODO Booting via Morbo
 
 * A sample grub.conf
 
