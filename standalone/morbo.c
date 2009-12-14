@@ -139,6 +139,9 @@ main(uint32_t magic, struct mbi *mbi)
   if (do_wait) {
     printf("Polling for events until we are kicked in the nuts.\n");
     volatile uint32_t *modules = &mbi->mods_count;
+    /* Indicate that we are ready to be booted by setting
+       mbi->mods_count to zero. This breaks if we load only one
+       module... */
     *modules = 0;
     while (*modules == 0) {
       ohci_poll_events(&ohci);
