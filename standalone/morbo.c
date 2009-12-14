@@ -16,9 +16,7 @@
 /* TODO: Select OHCI if there is more than one. */
 
 /* Globals */
-static bool multiboot_loader = false;
-
-volatile const struct mbi *multiboot_info = 0;
+struct mbi *multiboot_info = 0;
 
 /* Configuration (set by command line parser) */
 static bool be_verbose = true;
@@ -66,14 +64,12 @@ parse_cmdline(const char *cmdline)
 int
 main(uint32_t magic, struct mbi *mbi)
 {
-  multiboot_loader = (magic == MBI_MAGIC);
-
   serial_init();
   printf("\nMorbo %s\n", version_str);
   printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
   /* Command line parsing */
-  if (multiboot_loader) {
+  if (magic == MBI_MAGIC) {
     multiboot_info = mbi;
     if ((mbi->flags & MBI_FLAG_CMDLINE) != 0)
       parse_cmdline((const char *)mbi->cmdline);

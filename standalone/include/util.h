@@ -96,7 +96,6 @@ void __exit(unsigned status) __attribute__((noreturn));
 void reboot(void) __attribute__((noreturn));
 
 /* Boot info */
-extern volatile const struct mbi *multiboot_info;
-extern volatile uint32_t kernel_entry_point;
+extern struct mbi *multiboot_info;
 
 /* EOF */
