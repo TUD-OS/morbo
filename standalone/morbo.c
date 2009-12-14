@@ -136,7 +136,7 @@ main(uint32_t magic, struct mbi *mbi)
   }
  no_error:
 
-  if (do_wait) {
+  if ((mbi->mods_count == 0) || do_wait) {
     printf("Polling for events until we are kicked in the nuts.\n");
     volatile uint32_t *modules = &mbi->mods_count;
     /* Indicate that we are ready to be booted by setting
