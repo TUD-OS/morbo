@@ -5,18 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct cpu_id_t {
-  uint32_t eax;
-  uint32_t ebx;
-  uint32_t ecx;
-  uint32_t edx;
-} cpu_id_t;
-
-/**
- * Runs CPUID and stores its result in the specifed structure.
- */
-void do_cpuid(uint32_t eax, cpu_id_t *out) __attribute__((regparm(3)));
-
 enum IA32_MSRs {
   IA32_APIC_BASE = 0x001b,
 };
@@ -27,17 +15,37 @@ enum IA32_APIC_MSR {
   APIC_ENABLE            = 1<<11,
 };
 
-uint64_t read_msr(uint32_t msr) __attribute__((regparm(3)));
-void write_msr(uint32_t msr, uint64_t data) __attribute__((regparm(0)));
-
 /**
  * Uses CPUID to find out if the CPU has an enabled APIC.
  */
-bool has_apic(void);
+static inline bool
+has_apic(void)
+{
+  uint32_t edx;
+
+  asm ("cpuid" : "=d" (edx) : "a" (1) : "ebx", "ecx");
+
+  return ((edx >> 9) & 1) != 0;
+}
 
 /**
  * Tries to enable the APIC. Should work for anything after the P6.
  */
-void enable_apic(void);
+static inline void
+enable_apic(void)
+{
+  uint32_t hi, low;
+
+  asm ("rdmsr" : "=d" (hi), "=a" (low) : "c" (IA32_APIC_BASE));
+
+  /* Set default physical base address. */
+  low &= ~APIC_PHYS_BASE_MASK;
+  low |= APIC_DEFAULT_PHYS_BASE;
+
+  /* Set the enable bit. */
+  low |= APIC_ENABLE;
+
+  asm volatile ("wrmsr" :: "a" (low), "d" (hi), "c" (IA32_APIC_BASE));
+}
 
 /* EOF */
