@@ -2,6 +2,7 @@
 """Multibooting through firewire with the help of morbo."""
 
 import os, sys, struct, firewire
+from socket import ntohl
 
 def read_pulsar_config(name, state):
     """Handle pulsar config files. This is not 100% compatible, as we
@@ -36,11 +37,16 @@ def boot(files, fw=None):
     
     # XXX These indices are hardcoded for Morbo's ConfigROM. We should
     # implement proper parsing...
-    remote_vendor = struct.unpack("I", fw.read(cromaddr +  6*4, 4)) & 0xFFFFFF
-    remote_model  = struct.unpack("I", fw.read(cromaddr +  7*4, 4)) & 0xFFFFFF
-    remote_mbi    = struct.unpack("I", fw.read(cromaddr + 18*4, 4))
+    remote_vendor = ntohl(struct.unpack("I", fw.read(cromaddr +  6*4, 4))[0]) & 0xFFFFFF
+    remote_model  = ntohl(struct.unpack("I", fw.read(cromaddr +  7*4, 4))[0]) & 0xFFFFFF
+    remote_mbi    = ntohl(struct.unpack("I", fw.read(cromaddr + 18*4, 4))[0])
+    print("VENDOR %08x MODEL %08x" % (remote_vendor, remote_model))
     assert (remote_vendor == MORBO_VENDOR_ID) and (remote_model == MORBO_MODEL_ID), "Not a Morbo node."
-    print "MBI: %#x" % remote_mbi
+    print("MBI: %#x" % remote_mbi)
+
+    # Check if the node is ready to receive something (no modules in
+    # MBI).
+    assert fw.read_quadlet(remote_mbi + 5*4) == 0, "Already booted."
 
     state = [os.path.expanduser("~/boot/")]
 
@@ -75,7 +81,7 @@ def boot(files, fw=None):
         cmdlines += m[2] + "\x00"
     fw.write(loadaddr, "".join(marray) + cmdlines)
                  
-    mbi = list(struct.unpack("I"*7, fw.read(mbi, 28)))
+    mbi = list(struct.unpack("I"*7, fw.read(remote_mbi, 28)))
     mbi[0] |= 1<<3
     #mbi[5]  = len(mods)
     mbi[6]  = loadaddr
@@ -85,6 +91,8 @@ def boot(files, fw=None):
     # Morbo waits for the module count to change. Update it after the
     # rest of the multiboot info is written.
     fw.write(remote_mbi + 5*4, struct.pack("I", len(mods)))
+    if (len(mods) == 1):
+        print("XXX Only one module loaded! We might try to DMA to a running node...");
 
 if __name__ == "__main__":
-    boot_morbo(sys.argv[1:])
+    boot(sys.argv[1:])
