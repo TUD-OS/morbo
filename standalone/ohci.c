@@ -13,6 +13,7 @@
 
 #include <stdbool.h>
 
+#include <mbi.h>
 #include <morbo.h>
 
 #include <util.h>
@@ -33,13 +34,6 @@
 
 /* Globals */
 
-static __attribute__ ((aligned(1024)))
-ohci_config_rom_t   crom;
-
-/* XXX Should be in struct ohci_controller. */
-static __attribute__ ((aligned(2048)))
-uint32_t selfid_buf[504];
-
 /* Some debugging macros */
 
 #define OHCI_INFO(msg, args...) printf("OHCI: " msg, ## args)
@@ -55,11 +49,51 @@ uint32_t selfid_buf[504];
 
 #define CROM_DIR_ENTRY(type, key_id, value) (((type) << 30) | ((key_id) << 24) | (value))
 
+/** Allocates an aligned block of memory from the multiboot memory
+    map. */
+static void *
+mbi_alloc_protected_memory(size_t len, unsigned align)
+{
+  OHCI_INFO("Looking for a place to hide 0x%x bytes (0x%x byte-aligned).\n", len, 1<<align);
+
+  uint32_t align_mask = ~((1<<align)-1);
+  size_t mmap_len    = multiboot_info->mmap_length;
+  memory_map_t *mmap = (memory_map_t *)multiboot_info->mmap_addr;
+  
+  while ((uint32_t)mmap < multiboot_info->mmap_addr + mmap_len) {
+    uint64_t block_len  = (uint64_t)mmap->length_high<<32 | mmap->length_low;
+    uint64_t block_addr = (uint64_t)mmap->base_addr_high<<32 | mmap->base_addr_low;
+
+    if ((mmap->type == MMAP_AVAILABLE) && (block_len >= len) &&
+	((block_addr + block_len >> 32) == 0 /* Block below 4GB? */) &&
+	/* Still large enough with alignment? Don't use the block if
+	   it fits exactly, otherwise we would have to remove it.*/
+	(((block_addr + block_len - len) & align_mask) > block_addr)) {
+      OHCI_INFO("Found suitable block at 0x%llx (size 0x%llx).\n", block_addr, block_len);
+
+      uint32_t aligned_len = block_addr + block_len - ((block_addr + block_len - len) & align_mask);
+      OHCI_INFO("Length %x -> %x.\n", len, aligned_len);
+      
+      /* Shorten block. */
+      block_len -= aligned_len;
+      mmap->length_high = block_len >> 32;
+      mmap->length_low  = block_len & 0xFFFFFFFFU;
+
+      return (void *)(uint32_t)(block_addr + block_len);
+    }
+  
+    /* Skip to next entry. */
+    mmap = (memory_map_t *)(mmap->size + (uint32_t)mmap + sizeof(mmap->size));
+  }
+
+  assert(0, "No space for ConfigROM.");
+}
+
 /* TODO This could be made nicer, but C sucks... */
 static void
-ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
+ohci_generate_crom(struct ohci_controller *ohci)
 {
-  assert(crom != 0, "CROM NULL");
+  ohci_config_rom_t *crom = ohci->crom;
 
   /* Initialize with zero */
   memset(crom, 0, sizeof(ohci_config_rom_t));
@@ -101,9 +135,10 @@ ohci_generate_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
 }
 
 static void
-ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
+ohci_load_crom(struct ohci_controller *ohci)
 {
-  assert(crom != 0, "CROM NULL");
+  ohci_config_rom_t *crom = ohci->crom;
+
   assert(((uint32_t)crom & 1023) == 0, "Misaligned Config ROM");
 
   OHCI_INFO("ConfigROM at %p! linkEnable = %s\n", crom->field, (OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) ? "ON" : "OFF");
@@ -138,6 +173,8 @@ ohci_load_crom(struct ohci_controller *ohci, ohci_config_rom_t *crom)
   OHCI_REG(ohci, HCControlSet) = HCControl_BIBimageValid;
 
 }
+
+
 
 static void
 wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t value, uint32_t max_ticks)
@@ -413,8 +450,11 @@ ohci_initialize(const struct pci_device *pci_dev,
   }
 
   /* Set SelfID buffer */
-  selfid_buf[0] = 0xDEADBEEF;		/* error checking */
-  OHCI_REG(ohci, SelfIDBuffer) = (uint32_t)selfid_buf;
+  ohci->selfid_buf = mbi_alloc_protected_memory(sizeof(uint32_t[504]), 11);
+  OHCI_INFO("Allocated SelfID buffer at %p.\n", ohci->selfid_buf);
+ 
+  ohci->selfid_buf[0] = 0xDEADBEEF; /* error checking */
+  OHCI_REG(ohci, SelfIDBuffer) = (uint32_t)ohci->selfid_buf;
   OHCI_REG(ohci, LinkControlSet) = LinkControl_rcvSelfID;
 
   OHCI_INFO("Generation: %x\n", (OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF);
@@ -429,8 +469,11 @@ ohci_initialize(const struct pci_device *pci_dev,
   /* Set Config ROM */
   OHCI_INFO("Updating config ROM.\n");
 
-  ohci_generate_crom(ohci, &crom);
-  ohci_load_crom(ohci, &crom);
+  ohci->crom = mbi_alloc_protected_memory(sizeof(ohci_config_rom_t), 10);
+  OHCI_INFO("ConfigROM allocated at %p.\n", ohci->crom);
+
+  ohci_generate_crom(ohci);
+  ohci_load_crom(ohci);
 
   /* enable link */
   OHCI_REG(ohci, HCControlSet) = HCControl_linkEnable;
@@ -509,8 +552,8 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 	    selfid_words * 4);
 
   for (unsigned i = 0; i < selfid_words; i++) {
-    assert(i < sizeof(selfid_buf)/sizeof(uint32_t), "buffer overflow");
-    OHCI_INFO("SelfID buf[0x%x] = 0x%x\n", i, selfid_buf[i]);
+    assert(i < sizeof(uint32_t[504])/sizeof(uint32_t), "buffer overflow");
+    OHCI_INFO("SelfID buf[0x%x] = 0x%x\n", i, ohci->selfid_buf[i]);
   }
 
 }

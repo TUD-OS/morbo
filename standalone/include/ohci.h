@@ -6,12 +6,16 @@
 #include <stdint.h>
 #include <pci.h>
 
+#include <ohci-crm.h>
+
 struct ohci_controller {
 
   const struct pci_device *pci;	/* PCI device info. */
 
   volatile uint32_t *ohci_regs;	/* Pointer to memory-mapped OHCI
 				   registers. */
+  ohci_config_rom_t *crom;
+  uint32_t *selfid_buf;
 
   uint8_t total_ports;
   bool enhanced_phy_map;

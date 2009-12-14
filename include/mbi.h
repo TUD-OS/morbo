@@ -53,7 +53,7 @@ struct module
   uint32_t reserved;
 };
 
-struct memory_map
+typedef struct memory_map
 {
   uint32_t size;
   uint32_t base_addr_low;
@@ -62,5 +62,9 @@ struct memory_map
   uint32_t length_high;
   uint32_t type;
 } memory_map_t;
+
+enum memory_map_type {
+  MMAP_AVAILABLE = 1,
+};
 
 /* EOF */
