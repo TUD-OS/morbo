@@ -51,11 +51,10 @@
 
 /** Allocates an aligned block of memory from the multiboot memory
     map. */
+/* XXX Move this out of here. */
 static void *
 mbi_alloc_protected_memory(size_t len, unsigned align)
 {
-  OHCI_INFO("Looking for a place to hide 0x%x bytes (0x%x byte-aligned).\n", len, 1<<align);
-
   uint32_t align_mask = ~((1<<align)-1);
   size_t mmap_len    = multiboot_info->mmap_length;
   memory_map_t *mmap = (memory_map_t *)multiboot_info->mmap_addr;
@@ -69,10 +68,8 @@ mbi_alloc_protected_memory(size_t len, unsigned align)
 	/* Still large enough with alignment? Don't use the block if
 	   it fits exactly, otherwise we would have to remove it.*/
 	(((block_addr + block_len - len) & align_mask) > block_addr)) {
-      OHCI_INFO("Found suitable block at 0x%llx (size 0x%llx).\n", block_addr, block_len);
 
       uint32_t aligned_len = block_addr + block_len - ((block_addr + block_len - len) & align_mask);
-      OHCI_INFO("Length %x -> %x.\n", len, aligned_len);
       
       /* Shorten block. */
       block_len -= aligned_len;
