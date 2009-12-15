@@ -16,7 +16,7 @@ cutil = fenv.StaticLibrary('cutil',
 
 AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
 
-morbo = fenv.Program('morbo',
+morbo = fenv.Program('morbo.debug',
                      ['start.asm',
                       'crc16.c',
                       'util.c',
@@ -33,6 +33,8 @@ morbo = fenv.Program('morbo',
                      LIBS=['cutil'],
                      LIBPATH=['.']
                      )
+
+morbo = Command('morbo', morbo, 'strip -o $TARGET $SOURCE')
 
 Depends(morbo, 'morbo.ld')
 
