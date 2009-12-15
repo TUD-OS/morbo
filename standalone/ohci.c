@@ -135,10 +135,8 @@ static void
 ohci_load_crom(struct ohci_controller *ohci)
 {
   ohci_config_rom_t *crom = ohci->crom;
-
   assert(((uint32_t)crom & 1023) == 0, "Misaligned Config ROM");
 
-  OHCI_INFO("ConfigROM at %p! linkEnable = %s\n", crom->field, (OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) ? "ON" : "OFF");
   if ((OHCI_REG(ohci, HCControlSet) & HCControl_linkEnable) == 0) {
     /* We are not up yet, so set these manually. */
     OHCI_REG(ohci, ConfigROMhdr) = crom->field[0];
@@ -266,9 +264,6 @@ ohci_check_version(struct ohci_controller *ohci)
   uint8_t  ohci_version  = (ohci_version_reg >> 16) & 0xFF;
   uint8_t  ohci_revision = ohci_version_reg & 0xFF;
 
-  printf("GUID = %s, version = %x, revision = %x\n",
-	 guid_rom ? "yes" : "no?!", ohci_version, ohci_revision);
-
   if ((ohci_version <= 1) && (ohci_revision < 10)) {
     printf("Controller implements OHCI %d.%d. But we require at least 1.10.\n",
 	   ohci_version, ohci_revision);
@@ -283,19 +278,16 @@ ohci_initialize(const struct pci_device *pci_dev,
 		struct ohci_controller *ohci,
 		bool posted_writes)
 {
-  assert(ohci != NULL, "Invalid pointer");
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
   ohci->posted_writes = posted_writes;
 
   assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
-  printf("OHCI registers are at 0x%x.\n", ohci->ohci_regs);
-  printf("OHCI (%x:%x) is a %s.\nQuirks: %x\n",
-	 pci_dev->db->vendor_id,
-	 pci_dev->db->device_id,
-	 pci_dev->db->device_name,
-	 pci_dev->db->quirks);
+  OHCI_INFO("Controller (%x:%x) = %s.\n",
+	    pci_dev->db->vendor_id,
+	    pci_dev->db->device_id,
+	    pci_dev->db->device_name);
 
   if (ohci->ohci_regs == NULL) {
     printf("Uh? OHCI register pointer is NULL.\n");
@@ -329,13 +321,10 @@ ohci_initialize(const struct pci_device *pci_dev,
     unsigned wait_more_cnt = 10;
     uint32_t phycontrol, intevent;
 
-    OHCI_INFO("%d retries left.\n", lps_retries);
-
     OHCI_REG(ohci, HCControlSet) = HCControl_LPS;
     wait_loop(ohci, HCControlSet, HCControl_LPS, HCControl_LPS, MISC_TIMEOUT);
 
     wait(50);			/* SCLK should be up by now */
-    OHCI_INFO("Grace period done.\n");
 
     OHCI_REG(ohci, IntEventClear) = ~0U;
     OHCI_REG(ohci, PhyControl) = PhyControl_Read(1);
@@ -372,6 +361,8 @@ ohci_initialize(const struct pci_device *pci_dev,
     break;
 
   next:
+    OHCI_INFO("%d retries left.\n", lps_retries);
+
     /* Disable LPS */
     OHCI_REG(ohci, HCControlClear) = HCControl_LPS;
     OHCI_INFO("Waiting for LPS clear.\n");
@@ -388,7 +379,6 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   /* Disable contender bit */
   uint8_t phy4 = phy_read(ohci, 4);
-  OHCI_INFO("phy4 = %x\n", phy4);
   phy_write(ohci, 4, phy4 & ~0x40);
 
   /* LPS is up. We can now communicate with the PHY. Discover how many
@@ -413,8 +403,6 @@ ohci_initialize(const struct pci_device *pci_dev,
       if ((reg0 & PHY_PORT_DISABLED) != 0) {
 	OHCI_INFO("Enabling port %d.\n", port);
 	phy_write(ohci, 8, reg0 & ~PHY_PORT_DISABLED);
-      } else {
-	OHCI_INFO("Port %d is already enabled.\n", port);
       }
     }
   }
@@ -453,8 +441,6 @@ ohci_initialize(const struct pci_device *pci_dev,
   ohci->selfid_buf[0] = 0xDEADBEEF; /* error checking */
   OHCI_REG(ohci, SelfIDBuffer) = (uint32_t)ohci->selfid_buf;
   OHCI_REG(ohci, LinkControlSet) = LinkControl_rcvSelfID;
-
-  OHCI_INFO("Generation: %x\n", (OHCI_REG(ohci, SelfIDCount) >> 16) & 0xFF);
 
   // we retry because of a busy partner
   OHCI_REG(ohci, ATRetries) = 0xFFF;
@@ -527,9 +513,6 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   OHCI_REG(ohci, PhyReqFilterHiSet) = ~0U;
   OHCI_REG(ohci, PhyReqFilterLoSet) = ~0U;
 
-  OHCI_INFO("AsReqFilter   %x %x\n", OHCI_REG(ohci, AsReqFilterHiSet), OHCI_REG(ohci, AsReqFilterLoSet));
-  OHCI_INFO("PhyReqFilter  %x %x\n", OHCI_REG(ohci, PhyReqFilterHiSet), OHCI_REG(ohci, PhyReqFilterLoSet));
-
   if (~0U != (OHCI_REG(ohci, PhyReqFilterLoSet) & OHCI_REG(ohci, PhyReqFilterHiSet) &
 	      OHCI_REG(ohci, AsReqFilterLoSet)  & OHCI_REG(ohci, AsReqFilterHiSet))) {
     OHCI_INFO("XXX Something is seriously b0rken.\n");
@@ -548,9 +531,11 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 	    (selfid_count >> 16) & 0xFF,
 	    selfid_words * 4);
 
-  for (unsigned i = 0; i < selfid_words; i++) {
+  for (unsigned i = 1; i < selfid_words; i += 2) {
     assert(i < sizeof(uint32_t[504])/sizeof(uint32_t), "buffer overflow");
-    OHCI_INFO("SelfID buf[0x%x] = 0x%x\n", i, ohci->selfid_buf[i]);
+    uint32_t cur = ohci->selfid_buf[i];
+    uint32_t next = ohci->selfid_buf[i+1];
+    OHCI_INFO("SelfID buf[0x%x] = 0x%x (%s)\n", i, cur, (cur == ~next) ? "OK" : "CORRUPT");
   }
 
 }

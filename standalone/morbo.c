@@ -75,7 +75,8 @@ main(uint32_t magic, struct mbi *mbi)
       parse_cmdline((const char *)mbi->cmdline);
 
     /* Check modules structure. */
-    if ((mbi->flags & MBI_FLAG_MODS) != 0) {
+    if (((mbi->flags & MBI_FLAG_MODS) != 0)
+	&& (mbi->mods_count > 0)) {
       struct module *mod = (struct module *)mbi->mods_addr;
       printf("%d modules.\n", mbi->mods_count);
       for (unsigned i = 0; i < mbi->mods_count; i++, mod++) {
