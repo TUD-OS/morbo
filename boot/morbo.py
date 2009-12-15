@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Multibooting through firewire with the help of morbo."""
 
-import os, sys, struct, firewire
+import os, sys, struct, firewire, string
 from socket import ntohl
 
 def read_pulsar_config(name, state):
@@ -61,7 +61,7 @@ def boot(files, fw=None):
             loadaddr = item
         else:
             name = item.split()[0]
-            print "\tmod[%02d] %60s [%08x -"%(len(mods), name, loadaddr),
+            print "\tmod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 60), loadaddr),
             data = open(name).read()
             fw.write(loadaddr, data)
             mods.append((loadaddr, loadaddr + len(data), item))
