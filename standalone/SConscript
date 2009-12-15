@@ -14,6 +14,8 @@ cutil = fenv.StaticLibrary('cutil',
                              'strtoll.c',
                              ])
 
+AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
+
 morbo = fenv.Program('morbo',
                      ['start.asm',
                       'crc16.c',
