@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """reboot the remote system"""
 
-import struct, os, sys, binary
+import struct, os, sys, binary, firewire
 
 def reboot_nova(kernel, fw):
     """rebooting a running nova is hard: we modify the NMI vector in
@@ -13,10 +13,7 @@ def reboot_nova(kernel, fw):
     fw.write(idt + 2*0x8, struct.pack("H"*4,*desc))
     fw.send_nmi()
 
-def reboot(kernel, fw=None):
-    if not fw:
-        import firewire    
-        fw = firewire.RemoteFw()
+def reboot(kernel, fw=firewire.RemoteFw()):
     fw.send_init()
     reboot_nova(kernel, fw)
     

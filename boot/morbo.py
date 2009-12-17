@@ -25,16 +25,13 @@ def read_pulsar_config(name, state):
         else:
             print "ignored line:", repr(line)
 
-def boot(files, fw=None):
+def boot(files, fw=firewire.RemoteFw()):
     cromaddr = 0xfffff0000400
     loadaddr = 0x01000000
 
     MORBO_VENDOR_ID = 0xCAFFEE
     MORBO_MODEL_ID  = 0x000002
 
-    if not fw:
-        fw = firewire.RemoteFw()
-    
     # XXX These indices are hardcoded for Morbo's ConfigROM. We should
     # implement proper parsing...
     remote_vendor = ntohl(struct.unpack("I", fw.read(cromaddr +  6*4, 4))[0]) & 0xFFFFFF
@@ -83,7 +80,6 @@ def boot(files, fw=None):
                  
     mbi = list(struct.unpack("I"*7, fw.read(remote_mbi, 28)))
     mbi[0] |= 1<<3
-    #mbi[5]  = len(mods)
     mbi[6]  = loadaddr
     fw.write(remote_mbi, struct.pack("I"*7, *mbi))
     
