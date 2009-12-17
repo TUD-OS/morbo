@@ -1,4 +1,4 @@
-import os, struct
+import os, struct, config
 import subprocess
 
 class FirewireException(Exception):
@@ -12,7 +12,7 @@ class RemoteFw:
         self.node = node
 
     def read(self, address, count):
-        peek = subprocess.Popen("fw_peek %d 0x%08x 0x%08x" % (self.node, address, count),
+        peek = subprocess.Popen(config.PROGS["fwread"]%{"node" : self.node, "address": address, "count": count},
                                 shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         data, err = peek.communicate(None)
         if peek.returncode != 0:

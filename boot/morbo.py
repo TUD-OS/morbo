@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Multibooting through firewire with the help of morbo."""
 
-import os, sys, struct, firewire, string
+import os, sys, struct, firewire, string, config
 from socket import ntohl
 
 def read_pulsar_config(name, state):
@@ -45,7 +45,7 @@ def boot(files, fw=firewire.RemoteFw()):
     # MBI).
     assert fw.read_quadlet(remote_mbi + 5*4) == 0, "Already booted."
 
-    state = [os.path.expanduser("~/boot/")]
+    state = [config.PATHS["bootdir"]]
 
     print "read config files"
     for name in files:
