@@ -16,8 +16,8 @@
 
 #include <ohci-constants.h>
 
-static char usage_peek[] = "Usage: %s [-q] [-p port] guid/nodeno address length\n";
-static char usage_poke[] = "Usage: %s [-q] [-p port] guid/nodeno address\n";
+static char usage_peek[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address length\n";
+static char usage_poke[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address\n";
 
 const char *strippath(const char *name)
 {
@@ -35,7 +35,7 @@ main(int argc, char **argv)
   /* Command line parsing */
   int opt;
   unsigned port = 0;
-  bool quadletwise = false;
+  unsigned step = 512;
 
   enum { INVALID, PEEK, POKE } mode = INVALID;
 
@@ -51,13 +51,13 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  while ((opt = getopt(argc, argv, "qp:")) != -1) {
+  while ((opt = getopt(argc, argv, "p:b:")) != -1) {
     switch (opt) {
-    case 'q':
-      quadletwise = true;
-      break;
     case 'p':
-      port = atoi(optarg);
+      port = strtoul(optarg, 0, 0);
+      break;
+    case 'b':
+      step = strtoul(optarg, 0, 0);
       break;
     default:
       goto print_usage;
@@ -113,7 +113,6 @@ main(int argc, char **argv)
     ;
   }
 
-  unsigned step = quadletwise ? 4 : 512;
   quadlet_t buf[step/sizeof(quadlet_t)];
 
   switch (mode) {
