@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 """Multibooting through firewire with the help of morbo."""
 
-import os, sys, struct, firewire, string, config
+# TODO Support for more than two devices on the bus.
+
+import os, sys, struct, firewire, string, config, getopt, time
 from socket import ntohl
+
+CROM_ADDR = 0xfffff0000400
 
 def read_pulsar_config(name, state):
     """Handle pulsar config files. This is not 100% compatible, as we
@@ -25,20 +29,28 @@ def read_pulsar_config(name, state):
         else:
             print "ignored line:", repr(line)
 
-def boot(files, fw=firewire.RemoteFw()):
-    cromaddr = 0xfffff0000400
-    loadaddr = 0x01000000
-
+def is_morbo(fw=firewire.RemoteFw()):
     MORBO_VENDOR_ID = 0xCAFFEE
     MORBO_MODEL_ID  = 0x000002
-
+    
     # XXX These indices are hardcoded for Morbo's ConfigROM. We should
     # implement proper parsing...
-    remote_vendor = ntohl(struct.unpack("I", fw.read(cromaddr +  6*4, 4))[0]) & 0xFFFFFF
-    remote_model  = ntohl(struct.unpack("I", fw.read(cromaddr +  7*4, 4))[0]) & 0xFFFFFF
-    remote_mbi    = ntohl(struct.unpack("I", fw.read(cromaddr + 18*4, 4))[0])
+    vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
+    model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
+
+    if ((vendor != MORBO_MODEL_ID) or (model != MORBO_MODEL_ID)):
+        return (False, 0, 0)
+
+    return (True, vendor, model)
+
+def boot(files, fw=firewire.RemoteFw()):
+    loadaddr = 0x01000000
+
+    ready, vendor, model = is_morbo(fw)
+    assert(ready)
+
     print("VENDOR %08x MODEL %08x" % (remote_vendor, remote_model))
-    assert (remote_vendor == MORBO_VENDOR_ID) and (remote_model == MORBO_MODEL_ID), "Not a Morbo node."
+    mbi    = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     print("MBI: %#x" % remote_mbi)
 
     # Check if the node is ready to receive something (no modules in
@@ -91,4 +103,20 @@ def boot(files, fw=firewire.RemoteFw()):
         print("XXX Only one module loaded! We might try to DMA to a running node...");
 
 if __name__ == "__main__":
-    boot(sys.argv[1:])
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "", ["once"])
+        args = set([ a for (a, b) in opts ]) # Strip parameter
+        if not (args & set(["--once"])):
+            print("Waiting for a Morbo node...")
+            while not is_morbo()[0]:
+                time.sleep(0.1)
+        boot(args)
+    except getopt.GetoptError, err:
+        # print help information and exit:
+        print(str(err)) # will print something like "option -a not recognized"
+        print("Options:")
+        print("  --once    Don't wait for a node to come up.")
+        sys.exit(2)
+    except KeyboardInterrupt, err:
+        print("Interrupted.");
+
