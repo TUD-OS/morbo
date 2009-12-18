@@ -35,13 +35,17 @@ def is_morbo(fw=firewire.RemoteFw()):
     
     # XXX These indices are hardcoded for Morbo's ConfigROM. We should
     # implement proper parsing...
-    vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
-    model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
+    try:
+        vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
+        model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
+    except firewire.FirewireException, err:
+        vendor = 0
+        model  = 0
 
-    if ((vendor != MORBO_MODEL_ID) or (model != MORBO_MODEL_ID)):
+    if ((vendor == MORBO_VENDOR_ID) and (model == MORBO_MODEL_ID)):
+        return (True, vendor, model)
+    else:
         return (False, 0, 0)
-
-    return (True, vendor, model)
 
 def boot(files, fw=firewire.RemoteFw()):
     loadaddr = 0x01000000
@@ -49,8 +53,7 @@ def boot(files, fw=firewire.RemoteFw()):
     ready, vendor, model = is_morbo(fw)
     assert(ready)
 
-    print("VENDOR %08x MODEL %08x" % (remote_vendor, remote_model))
-    mbi    = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
+    remote_mbi = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     print("MBI: %#x" % remote_mbi)
 
     # Check if the node is ready to receive something (no modules in
@@ -62,6 +65,7 @@ def boot(files, fw=firewire.RemoteFw()):
     print "read config files"
     for name in files:
         read_pulsar_config(name, state)
+    print(state)
 
     print "push modules"
     mods = []
@@ -105,12 +109,12 @@ def boot(files, fw=firewire.RemoteFw()):
 if __name__ == "__main__":
     try:
         opts, args = getopt.getopt(sys.argv[1:], "", ["once"])
-        args = set([ a for (a, b) in opts ]) # Strip parameter
-        if not (args & set(["--once"])):
+        opts = set([ a for (a, b) in opts ]) # Strip parameter
+        if not (opts & set(["--once"])):
             print("Waiting for a Morbo node...")
             while not is_morbo()[0]:
-                time.sleep(0.1)
-        boot(args)
+                time.sleep(1)
+        boot([args[0]])
     except getopt.GetoptError, err:
         # print help information and exit:
         print(str(err)) # will print something like "option -a not recognized"
