@@ -28,35 +28,45 @@ static bool posted_writes = false;
 void
 parse_cmdline(const char *cmdline)
 {
+  char *last_ptr = NULL;
   char cmdline_buf[256];
   char *token;
   unsigned i;
 
   strncpy(cmdline_buf, cmdline, sizeof(cmdline_buf));
 
-  for (token = strtok(cmdline_buf, " "), i = 0;
+  for (token = strtok_r(cmdline_buf, " ", &last_ptr), i = 0;
        token != NULL;
-       token = strtok(NULL, " "), i++) {
+       token = strtok_r(NULL, " ", &last_ptr), i++) {
 
     /* Our name is not interesting. */
     if (i == 0)
       continue;
 
     if (strcmp(token, "noapic") == 0) {
-      printf("Disabling APIC magic.\n");
       force_enable_apic = false;
     } else if (strcmp(token, "quiet") == 0) {
       be_verbose = false;
     } else if (strcmp(token, "keepgoing") == 0) {
-      printf("Errors will be ignored. You obviously like playing risky.\n");
       keep_going = true;
     } else if (strcmp(token, "postedwrites") == 0) {
-      printf("Posted writes will be enabled. Disable them, if you experience problems.\n");
       posted_writes = true;
     } else if (strcmp(token, "wait") == 0) {
       do_wait = true;
+    } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) ==0) {
+      char *args_ptr = NULL;
+      char *width = strtok_r(token + sizeof("mempatch=")-1, ",", &args_ptr);
+      uintptr_t addr  = (uintptr_t)strtoul(strtok_r(NULL, ",", &args_ptr), NULL, 0);
+      uint32_t value = strtoul(strtok_r(NULL, ",", &args_ptr), NULL, 0);
+
+      switch (width[0]) {
+      case 'b': *((uint8_t  *)addr) = (uint8_t)value; break;
+      case 'w': *((uint16_t *)addr) = (uint16_t)value; break;
+      case 'd': *((uint32_t *)addr) = (uint32_t)value; break;
+      }
     } else {
-      printf("Ingoring unrecognized argument: %s.\n", token);
+      /* printf not possible yet. */
+      //printf("Ingoring unrecognized argument: %s.\n", token);
     }
   }
 }
@@ -64,29 +74,20 @@ parse_cmdline(const char *cmdline)
 int
 main(uint32_t magic, struct mbi *mbi)
 {
-  serial_init();
-  printf("\nMorbo %s\n", version_str);
-  printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
-
   /* Command line parsing */
   if (magic == MBI_MAGIC) {
     multiboot_info = mbi;
     if ((mbi->flags & MBI_FLAG_CMDLINE) != 0)
       parse_cmdline((const char *)mbi->cmdline);
-
-    /* Check modules structure. */
-    if (((mbi->flags & MBI_FLAG_MODS) != 0)
-	&& (mbi->mods_count > 0)) {
-      struct module *mod = (struct module *)mbi->mods_addr;
-      printf("%d modules.\n", mbi->mods_count);
-      for (unsigned i = 0; i < mbi->mods_count; i++, mod++) {
-    	printf("mod[%d]: '%s' 0x%x-0x%x\n", i, mod->string, mod->mod_start, mod->mod_end);
-      }
-    }
   } else {
+    serial_init();
     printf("Not loaded by Multiboot-compliant loader. Bye.\n");
     return 1;
   }
+
+  serial_init();
+  printf("\nMorbo %s\n", version_str);
+  printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
   /* Check for APIC support */
   if (force_enable_apic && !has_apic()) {
@@ -103,6 +104,9 @@ main(uint32_t magic, struct mbi *mbi)
 
     printf("Yeah, I did it. The APIC is enabled. :-)");
   }
+
+  if (posted_writes)
+    printf("Posted writes will be enabled. Disable them, if you experience problems.\n");
 
   printf("Trying to find an OHCI controller... ");
 

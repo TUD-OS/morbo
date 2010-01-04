@@ -36,12 +36,13 @@
 #define memset(x,y,z) __builtin_memset(x,y,z)
 #define strlen(s) __builtin_strlen(s)
 #define strcmp(s1, s2) __builtin_strcmp(s1, s2)
-#define strncmp(s1, s2) __builtin_strncmp(s1, s2)
 #define strcpy(d, s) __builtin_strcpy(d, s)
-//#define strncpy(d, s, n) __builtin_strncpy(d, s, n)
+#define strncpy(d, s, n) __builtin_strncpy(d, s, n)
 
+char *strtok_r(char *s, const char *delim, char **save_ptr);
 char *strtok(char *s, const char *delim);
-char *strncpy(char * __restrict dst, const char * __restrict src, size_t n);
+unsigned long strtoul(const char * __restrict nptr, char ** __restrict endptr, int base);
+int strncmp(const char *s1, const char *s2, size_t n);
 
 /**
  * Returns result and prints the msg, if value is true.

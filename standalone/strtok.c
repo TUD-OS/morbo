@@ -39,10 +39,8 @@ static char sccsid[] = "@(#)strtok.c	8.1 (Berkeley) 6/4/93";
 #include <stddef.h>
 #include <util.h>
 
-char	*__strtok_r(char *, const char *, char **);
-
 char *
-__strtok_r(char *s, const char *delim, char **last)
+strtok_r(char *s, const char *delim, char **last)
 {
 	char *spanp, *tok;
 	int c, sc;
@@ -92,7 +90,7 @@ strtok(char *s, const char *delim)
 {
 	static char *last;
 
-	return (__strtok_r(s, delim, &last));
+	return (strtok_r(s, delim, &last));
 }
 
 /* EOF */

@@ -8,10 +8,10 @@ fenv['CPPPATH'] = ["#include", "include/"]
 fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
 
 cutil = fenv.StaticLibrary('cutil',
-                           [ 'strncpy.c',
+                           [ 'strncmp.c',
+                             'strncpy.c',
                              'strtok.c',
-                             'strtol.c',
-                             'strtoll.c',
+                             'strtoul.c',
                              ])
 
 AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
