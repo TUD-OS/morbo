@@ -38,23 +38,24 @@ def is_morbo(fw=firewire.RemoteFw()):
     try:
         vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
         model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
+        rmbi   = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     except firewire.FirewireException, err:
         vendor = 0
         model  = 0
+        rmbi   = 0
 
-    if ((vendor == MORBO_VENDOR_ID) and (model == MORBO_MODEL_ID)):
-        return (True, vendor, model)
+    if ((vendor == MORBO_VENDOR_ID) and (model == MORBO_MODEL_ID)) and (fw.read_quadlet(rmbi + 5*4) == 0):
+        return (True, vendor, model, rmbi)
     else:
-        return (False, 0, 0)
+        return (False, 0, 0, 0)
 
 def boot(files, fw=firewire.RemoteFw()):
     loadaddr = 0x01000000
 
-    ready, vendor, model = is_morbo(fw)
+    ready, vendor, model, remote_mbi = is_morbo(fw)
     assert(ready)
-
-    remote_mbi = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     print("MBI: %#x" % remote_mbi)
+
 
     # Check if the node is ready to receive something (no modules in
     # MBI).
