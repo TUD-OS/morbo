@@ -3,7 +3,7 @@
 
 # TODO Support for more than two devices on the bus.
 
-import os, sys, struct, firewire, string, config, getopt, time
+import os, sys, struct, firewire, string, config, getopt, time, re
 from socket import ntohl
 
 CROM_ADDR = 0xfffff0000400
@@ -65,8 +65,8 @@ def boot(files, fw=firewire.RemoteFw()):
 
     print "read config files"
     for name in files:
-        read_pulsar_config(name, state)
-    print(state)
+    	read_pulsar_config(name, state)
+    print map(lambda x: re.sub("\s+", " ", str(x)), state)
 
     print "push modules"
     mods = []
