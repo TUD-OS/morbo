@@ -75,7 +75,7 @@ def boot(files, fw=firewire.RemoteFw()):
             loadaddr = item
         else:
             name = item.split()[0]
-            print "\tmod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 60), loadaddr),
+            print "    mod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 50), loadaddr),
             data = open(name).read()
             fw.write(loadaddr, data)
             mods.append((loadaddr, loadaddr + len(data), item))
