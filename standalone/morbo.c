@@ -53,7 +53,7 @@ parse_cmdline(const char *cmdline)
       posted_writes = true;
     } else if (strcmp(token, "wait") == 0) {
       do_wait = true;
-    } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) ==0) {
+    } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) == 0) {
       char *args_ptr = NULL;
       char *width = strtok_r(token + sizeof("mempatch=")-1, ",", &args_ptr);
       uintptr_t addr  = (uintptr_t)strtoul(strtok_r(NULL, ",", &args_ptr), NULL, 0);
@@ -66,7 +66,7 @@ parse_cmdline(const char *cmdline)
       }
     } else {
       /* printf not possible yet. */
-      //printf("Ingoring unrecognized argument: %s.\n", token);
+      //printf("Ignoring unrecognized argument: %s.\n", token);
     }
   }
 }

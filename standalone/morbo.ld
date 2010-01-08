@@ -24,6 +24,7 @@ SECTIONS
   .data :
   {
     *(.data .data.*);
+    *(COMMON);
     *(.bss  .bss.*);
   } : all
 

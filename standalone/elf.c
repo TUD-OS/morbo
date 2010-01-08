@@ -18,8 +18,10 @@
 static int
 extract_module(struct mbi *mbi, uint32_t *entry_point)
 {
-
-  CHECK3(-30, !mbi->mods_count, "no module to start");
+  if (mbi->mods_count == 0) {
+    printf("No module to start.\n");
+    return -1;
+  }
 
   // skip module after loading
   struct module *m  = (struct module *) mbi->mods_addr;

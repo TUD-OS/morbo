@@ -107,40 +107,4 @@ out_string(const char *value)
     out_char(*value);
 }
 
-
-/**
- * Output a single hex value.
- */
-void
-out_hex(unsigned value, unsigned bitlen)
-{
-  int i;
-  for (i=bsr(value | 1<<bitlen) &0xfc; i>=0; i-=4)
-    {
-      unsigned a = (value >> i) & 0xf;
-      if (a>=10)
-	a += 7;
-      a+=0x30;
-
-      out_char(a);
-    }
-}
-
-/**
- * Output a string followed by a single hex value, prefixed with a
- * message label.
- */
-void
-out_description(const char *prefix, unsigned int value)
-{
-  printf("%s%s %x\n", message_label, prefix, value);
-}
-
-/**
- * Output a string, prefixed with a message label.
- */
-void
-out_info(const char *msg)
-{
-  printf("%s%s\n", message_label, msg);
-}
+/* EOF */

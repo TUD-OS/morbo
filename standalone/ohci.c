@@ -14,6 +14,7 @@
 #include <stdbool.h>
 
 #include <mbi.h>
+#include <mbi-tools.h>
 #include <morbo.h>
 
 #include <util.h>
@@ -48,43 +49,6 @@
 #define DIR_TYPE_DIR    3
 
 #define CROM_DIR_ENTRY(type, key_id, value) (((type) << 30) | ((key_id) << 24) | (value))
-
-/** Allocates an aligned block of memory from the multiboot memory
-    map. */
-/* XXX Move this out of here. */
-static void *
-mbi_alloc_protected_memory(size_t len, unsigned align)
-{
-  uint32_t align_mask = ~((1<<align)-1);
-  size_t mmap_len    = multiboot_info->mmap_length;
-  memory_map_t *mmap = (memory_map_t *)multiboot_info->mmap_addr;
-  
-  while ((uint32_t)mmap < multiboot_info->mmap_addr + mmap_len) {
-    uint64_t block_len  = (uint64_t)mmap->length_high<<32 | mmap->length_low;
-    uint64_t block_addr = (uint64_t)mmap->base_addr_high<<32 | mmap->base_addr_low;
-
-    if ((mmap->type == MMAP_AVAILABLE) && (block_len >= len) &&
-	((block_addr + block_len >> 32) == 0 /* Block below 4GB? */) &&
-	/* Still large enough with alignment? Don't use the block if
-	   it fits exactly, otherwise we would have to remove it.*/
-	(((block_addr + block_len - len) & align_mask) > block_addr)) {
-
-      uint32_t aligned_len = block_addr + block_len - ((block_addr + block_len - len) & align_mask);
-      
-      /* Shorten block. */
-      block_len -= aligned_len;
-      mmap->length_high = block_len >> 32;
-      mmap->length_low  = block_len & 0xFFFFFFFFU;
-
-      return (void *)(uint32_t)(block_addr + block_len);
-    }
-  
-    /* Skip to next entry. */
-    mmap = (memory_map_t *)(mmap->size + (uint32_t)mmap + sizeof(mmap->size));
-  }
-
-  assert(0, "No space for ConfigROM.");
-}
 
 /* TODO This could be made nicer, but C sucks... */
 static void
@@ -435,7 +399,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   }
 
   /* Set SelfID buffer */
-  ohci->selfid_buf = mbi_alloc_protected_memory(sizeof(uint32_t[504]), 11);
+  ohci->selfid_buf = mbi_alloc_protected_memory(multiboot_info, sizeof(uint32_t[504]), 11);
   OHCI_INFO("Allocated SelfID buffer at %p.\n", ohci->selfid_buf);
  
   ohci->selfid_buf[0] = 0xDEADBEEF; /* error checking */
@@ -452,7 +416,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   /* Set Config ROM */
   OHCI_INFO("Updating config ROM.\n");
 
-  ohci->crom = mbi_alloc_protected_memory(sizeof(ohci_config_rom_t), 10);
+  ohci->crom = mbi_alloc_protected_memory(multiboot_info, sizeof(ohci_config_rom_t), 10);
   OHCI_INFO("ConfigROM allocated at %p.\n", ohci->crom);
 
   ohci_generate_crom(ohci);

@@ -29,9 +29,8 @@
     }									\
   } while (0)
 
-/**
- * we want inlined stringops
- */
+/* Use GCC's inline string operations. */
+#define memcmp(x,y,z) __builtin_memcmp(x,y,z)
 #define memcpy(x,y,z) __builtin_memcpy(x,y,z)
 #define memset(x,y,z) __builtin_memset(x,y,z)
 #define strlen(s) __builtin_strlen(s)
@@ -44,44 +43,9 @@ char *strtok(char *s, const char *delim);
 unsigned long strtoul(const char * __restrict nptr, char ** __restrict endptr, int base);
 int strncmp(const char *s1, const char *s2, size_t n);
 
-/**
- * Returns result and prints the msg, if value is true.
- */
-#define CHECK3(result, value, msg)			\
-  {							\
-    if (value)						\
-      {							\
-	out_info(msg);					\
-	return result;					\
-      }							\
-  }
-
-/**
- * Returns result and prints the msg and hex, if value is true.
- */
-#define CHECK4(result, value, msg, hex)			\
-  {							\
-    if (value)						\
-      {							\
-	out_description(msg, hex);			\
-	return result;					\
-      }							\
-  }
-
-/**
- * lowlevel output functions
- */
+/* Low-level output functions */
 int  out_char(unsigned value);
-void out_unsigned(unsigned int value, int len, unsigned base, char flag);
 void out_string(const char *value);
-void out_hex(unsigned int value, unsigned int bitlen);
-
-/**
- * every message with out_description is prefixed with message_label
- */
-extern const char message_label[];
-void out_description(const char *prefix, unsigned int value);
-void out_info(const char *msg);
 
 /* Poor man's isspace */
 #define isspace(c) ((c) == ' ')
@@ -89,9 +53,7 @@ void out_info(const char *msg);
 void vprintf(const char *fmt, va_list ap);
 void printf(const char *fmt, ...);
 
-/**
- * Helper functions.
- */
+/* Helper functions. */
 void wait(int ms);
 void __exit(unsigned status) __attribute__((noreturn));
 void reboot(void) __attribute__((noreturn));

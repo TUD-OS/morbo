@@ -6,9 +6,22 @@ fenv = freestanding_env.Clone()
 
 fenv['CPPPATH'] = ["#include", "include/"]
 fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
+fenv['LIBPATH'] = ['.']
 
-cutil = fenv.StaticLibrary('cutil',
-                           [ 'strncmp.c',
+stand = fenv.StaticLibrary('stand',
+                           [ 'elf.c',
+                             'mbi.c',
+                             'pci.c',
+                             'pci_db.c',
+                             'printf.c',
+                             'reboot.c',
+                             'serial.c',
+                             'start.asm',
+                             'util.c',
+                             'version.c',
+
+                             # FreeBSD libc stuff
+                             'strncmp.c',
                              'strncpy.c',
                              'strtok.c',
                              'strtoul.c',
@@ -16,30 +29,33 @@ cutil = fenv.StaticLibrary('cutil',
 
 AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
 
-morbo = fenv.Program('morbo.debug',
-                     ['start.asm',
-                      'crc16.c',
-                      'util.c',
-                      'elf.c',
-                      'reboot.c',
-                      'pci.c',
-                      'pci_db.c',
-                      'printf.c',
-                      'morbo.c',
-                      'version.c',
-                      'serial.c',
-                      'ohci.c',
-                      ],
-                     LIBS=['cutil'],
-                     LIBPATH=['.']
-                     )
+# Morbo
 
+morbo = fenv.Program('morbo.debug',
+                     [ 'crc16.c',
+                       'morbo.c',
+                       'ohci.c' ],
+                     LIBS=['stand'])
+Depends(morbo, 'morbo.ld')
 morbo = Command('morbo', morbo, 'strip -o $TARGET $SOURCE')
 
-Depends(morbo, 'morbo.ld')
 
-Install('#tftp', [ morbo ])
+# Zapp
 
+zapp = fenv.Program('zapp.debug',
+                    [ 'acpi.c',
+                      'zapp.c',
+                      ],
+                    LIBS=['stand'])
+Depends(zapp, 'morbo.ld')
+zapp = Command('zapp', zapp, 'strip -o $TARGET $SOURCE')
+
+
+# Installation
+
+Install('#tftp', [ morbo, zapp ])
+
+# Incomplete version of Option ROM
 
 rom_env = freestanding_env.Clone()
 
