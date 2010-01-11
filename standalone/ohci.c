@@ -224,7 +224,6 @@ ohci_check_version(struct ohci_controller *ohci)
 
   assert(ohci_version_reg != 0xFFFFFFFF, "Invalid PCI data?");
 
-  bool     guid_rom      = (ohci_version_reg >> 24) == 1;
   uint8_t  ohci_version  = (ohci_version_reg >> 16) & 0xFF;
   uint8_t  ohci_revision = ohci_version_reg & 0xFF;
 

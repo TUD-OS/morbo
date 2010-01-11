@@ -18,7 +18,7 @@ mbi_alloc_protected_memory(struct mbi *multiboot_info, size_t len, unsigned alig
     uint64_t block_addr = (uint64_t)mmap->base_addr_high<<32 | mmap->base_addr_low;
 
     if ((mmap->type == MMAP_AVAILABLE) && (block_len >= len) &&
-	((block_addr + block_len >> 32) == 0 /* Block below 4GB? */) &&
+	(((block_addr + block_len) >> 32) == 0 /* Block below 4GB? */) &&
 	/* Still large enough with alignment? Don't use the block if
 	   it fits exactly, otherwise we would have to remove it.*/
 	(((block_addr + block_len - len) & align_mask) > block_addr)) {
