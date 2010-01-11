@@ -28,17 +28,6 @@ pci_read_byte(unsigned addr)
 }
 
 /**
- * Read a word from the pci config space.
- */
-static unsigned short
-pci_read_word(unsigned addr)
-{
-  outl(PCI_ADDR_PORT, addr);
-  return inw(PCI_DATA_PORT + (addr & 2));
-}
-
-
-/**
  * Read a long from the pci config space.
  */
 static unsigned
@@ -47,18 +36,6 @@ pci_read_long(unsigned addr)
   outl(PCI_ADDR_PORT, addr);
   return inl(PCI_DATA_PORT);
 }
-
-
-/**
- * Write a word to the pci config space.
- */
-static void
-pci_write_word(unsigned addr, unsigned short value)
-{
-  outl(PCI_ADDR_PORT, addr);
-  outw(PCI_DATA_PORT + (addr & 2), value);
-}
-
 
 /**
  * Write a long to the pci config space.
@@ -119,33 +96,5 @@ pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset)
 {
   return pci_read_long(dev->cfg_address + offset);
 }
-
-/**
- * Find a capability for a device in the capability list.
- * @param addr - address of the device in the pci config space
- * @param id   - the capability id to search.
- * @return 0 on failiure or the offset into the pci device of the capability
- */
-static
-uint8_t
-pci_dev_find_cap(unsigned addr, unsigned char id)
-{
-  if ((pci_read_long(addr+PCI_CONF_HDR_CMD) & 0x100000) == 0) {
-    return 0;
-  }
-
-  unsigned char cap_offset = pci_read_byte(addr+PCI_CONF_HDR_CAP);
-
-  while (cap_offset) {
-    if (id == pci_read_byte(addr+cap_offset)) {
-      return cap_offset;
-    } else {
-      cap_offset = pci_read_byte(addr+cap_offset+PCI_CAP_OFFSET);
-    }
-  }
-
-  return 0;
-}
-  
 
 /* EOF */
