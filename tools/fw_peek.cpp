@@ -19,7 +19,7 @@
 static char usage_peek[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address length\n";
 static char usage_poke[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address\n";
 
-const char *strippath(const char *name)
+const char *strippath(char *name)
 {
   char *s = strrchr(name, '/');
 
