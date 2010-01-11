@@ -56,8 +56,8 @@ parse_cmdline(const char *cmdline)
     } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) == 0) {
       char *args_ptr = NULL;
       char *width = strtok_r(token + sizeof("mempatch=")-1, ",", &args_ptr);
-      uintptr_t addr  = (uintptr_t)strtoul(strtok_r(NULL, ",", &args_ptr), NULL, 0);
-      uint32_t value = strtoul(strtok_r(NULL, ",", &args_ptr), NULL, 0);
+      uintptr_t addr  = (uintptr_t)strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
+      uint32_t value = strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
 
       switch (width[0]) {
       case 'b': *((uint8_t  *)addr) = (uint8_t)value; break;

@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 1990, 1993
+/*-
+ * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,30 +28,31 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)strtoul.c	8.1 (Berkeley) 6/4/93";
+static char sccsid[] = "@(#)strtouq.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
+//__FBSDID("$FreeBSD$");
 
 #include <limits.h>
 #include <util.h>
 
 /*
- * Convert a string to an unsigned long integer.
+ * Convert a string to an unsigned long long integer.
  *
  * Assumes that the upper and lower case
  * alphabets and digits are each contiguous.
  */
-unsigned long
-strtoul(const char * __restrict nptr, char ** __restrict endptr, int base)
+unsigned long long
+strtoull(const char * __restrict nptr, char ** __restrict endptr, int base)
 {
 	const char *s;
-	unsigned long acc;
+	unsigned long long acc;
 	char c;
-	unsigned long cutoff;
+	unsigned long long cutoff;
 	int neg, any, cutlim;
 
 	/*
-	 * See strtol for comments as to the logic used.
+	 * See strtoq for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
@@ -80,8 +81,8 @@ strtoul(const char * __restrict nptr, char ** __restrict endptr, int base)
 	if (base < 2 || base > 36)
 		goto noconv;
 
-	cutoff = ULONG_MAX / base;
-	cutlim = ULONG_MAX % base;
+	cutoff = ULLONG_MAX / base;
+	cutlim = ULLONG_MAX % base;
 	for ( ; ; c = *s++) {
 		if (c >= '0' && c <= '9')
 			c -= '0';
@@ -102,7 +103,7 @@ strtoul(const char * __restrict nptr, char ** __restrict endptr, int base)
 		}
 	}
 	if (any < 0) {
-		acc = ULONG_MAX;
+		acc = ULLONG_MAX;
 		/* errno = ERANGE; */
 	} else if (!any) {
 noconv:

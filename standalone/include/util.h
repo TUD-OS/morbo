@@ -40,7 +40,7 @@
 
 char *strtok_r(char *s, const char *delim, char **save_ptr);
 char *strtok(char *s, const char *delim);
-unsigned long strtoul(const char * __restrict nptr, char ** __restrict endptr, int base);
+unsigned long long strtoull(const char * __restrict nptr, char ** __restrict endptr, int base);
 int strncmp(const char *s1, const char *s2, size_t n);
 
 /* Low-level output functions */

@@ -6,6 +6,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+struct rsdp {
+  char signature[8];
+  uint8_t checksum;
+  char oem[6];
+  uint8_t rev;
+  uint32_t rsdt;
+  uint32_t size;
+  uint64_t xsdt;
+  uint8_t ext_checksum;
+  char _res[3];
+} __attribute__((packed));
+
 struct acpi_table {
   char signature[4];
   uint32_t size;
@@ -24,11 +36,14 @@ struct device_scope {
   uint16_t _res;
   uint8_t enum_id;
   uint8_t start_bus;
-  uint8_t path[];
+  /* XXX Hardcode PCI device scope: path = (device, function) */
+  uint8_t path[2];
+  //uint8_t path[];
 } __attribute__((packed));
 
 enum {
-  TYPE_RMRR = 1,
+  TYPE_RMRR          = 1,
+  SCOPE_PCI_ENDPOINT = 1,
 };
 
 struct dmar_entry {
@@ -36,6 +51,8 @@ struct dmar_entry {
   uint16_t size;
   
   union {
+    /* If we include more than RMRRs here, we need to fix the DMAR
+       duplication code in zapp.c */
     struct rmrr {
       uint16_t _res;
       uint16_t segment;
@@ -55,13 +72,20 @@ struct dmar {
 };
 
 char acpi_checksum(const char *table, size_t count);
-char *acpi_get_rsdp(void);
-struct acpi_table *acpi_get_table(char *rsdt_raw, const char signature[4]);
+void acpi_fix_checksum(struct acpi_table *tab);
+
+struct rsdp *acpi_get_rsdp(void);
+struct acpi_table **acpi_get_table_ptr(struct acpi_table *rsdt, const char signature[4]);
 
 static inline struct dmar_entry *acpi_dmar_next(struct dmar_entry *cur)
 { return (struct dmar_entry *)((char *)cur + cur->size); }
 
-static inline bool acpi_in_table(struct acpi_table *tab, void *p)
+static inline bool acpi_in_table(struct acpi_table *tab, const void *p)
 { return ((uintptr_t)tab + tab->size) > (uintptr_t)p; }
+
+typedef void *(*memory_alloc_t)(size_t len, unsigned align);
+
+struct acpi_table *acpi_dup_table(struct acpi_table *rsdt, const char signature[4],
+				  memory_alloc_t alloc);
 
 /* EOF */

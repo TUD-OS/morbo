@@ -24,7 +24,8 @@ stand = fenv.StaticLibrary('stand',
                              'strncmp.c',
                              'strncpy.c',
                              'strtok.c',
-                             'strtoul.c',
+                             'strtoull.c',
+                             'qdivrem.c',
                              ])
 
 AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
