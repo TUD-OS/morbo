@@ -15,6 +15,50 @@
 #include <elf.h>
 #include <util.h>
 
+enum {
+  EAX, EDX, ECX, EBX, ESP, EBP, ESI, EDI
+};
+
+static void
+byte_out(uint8_t **code, uint8_t byte)
+{
+  **code = byte;
+  (*code)++;
+}
+
+static void
+gen_mov(uint8_t **code, int reg, uint32_t constant)
+{
+  byte_out(code, 0xB8 | reg);
+  byte_out(code, constant);
+  byte_out(code, constant >> 8);
+  byte_out(code, constant >> 16);
+  byte_out(code, constant >> 24);
+}
+
+static void
+gen_jmp_edx(uint8_t **code)
+{
+  byte_out(code, 0xFF); byte_out(code, 0xE2);
+}
+
+static void
+gen_elf_segment(uint8_t **code, void *target, void *src, size_t len,
+                size_t fill)
+{
+  gen_mov(code, EDI, (uint32_t)target);
+  gen_mov(code, ESI, (uint32_t)src);
+  gen_mov(code, ECX, len);
+  byte_out(code, 0xF3);         /* REP */
+  byte_out(code, 0xA4);         /* MOVSB */
+  //gen_mov(code, EAX, 0);
+  gen_mov(code, ECX, fill);
+  byte_out(code, 0xF3);         /* REP */
+  byte_out(code, 0xAA);         /* STOSB */
+}
+
+
+
 static int
 extract_module(struct mbi *mbi, uint32_t *entry_point)
 {
@@ -38,15 +82,23 @@ extract_module(struct mbi *mbi, uint32_t *entry_point)
   assert(elf->e_type==2 && elf->e_machine==3 && elf->e_version==1, "ELF type incorrect");
   assert(sizeof(struct ph) <= elf->e_phentsize, "e_phentsize to small");
 
+  uint8_t *code = (uint8_t)0x7C00;
+
   for (unsigned i=0; i<elf->e_phnum; i++) {
     struct ph *ph = (struct ph *)(m->mod_start + elf->e_phoff+ i*elf->e_phentsize);
     if (ph->p_type != 1)
       continue;
-    memcpy(ph->p_paddr, (char *)(m->mod_start+ph->p_offset), ph->p_filesz);
-    memset(ph->p_paddr+ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+    gen_elf_segment(&code, ph->p_paddr, (void *)(m->mod_start+ph->p_offset), ph->p_filesz,
+                    ph->p_memsz - ph->p_filesz);
   }
+  gen_mov(&code, EAX, 0x2BADB002);
+  gen_mov(&code, EDX, (uint32_t)elf->e_entry);
+  gen_jmp_edx(&code);
 
-  *entry_point = elf->e_entry;
+  asm volatile ("hlt");
+  asm volatile  ("jmp *%%edx" :: "a" (0), "d" (0x7C00), "b" (mbi));
+
+  /* NOT REACHED */
   return 0;
 }
 
