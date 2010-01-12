@@ -46,6 +46,6 @@ struct ph {
   unsigned int p_align;
 };
 
-int start_module(const struct mbi *mbi);
+int start_module(struct mbi *mbi);
 
 /* EOF */
