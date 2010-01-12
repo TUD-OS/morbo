@@ -46,6 +46,8 @@ enum pci_constants {
   PCI_CONF_HDR_CMD = 4,
   PCI_CONF_HDR_CAP = 52,
   PCI_CAP_OFFSET = 1,
+  PCI_CAP_ID_EXP   = 0x10,
+  PCI_EXP_TYPE_PCI_BRIDGE=0x7,
 };
 
 struct pci_device {

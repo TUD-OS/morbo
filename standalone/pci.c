@@ -20,7 +20,7 @@
 /**
  * Read a byte from the pci config space.
  */
-static unsigned char
+unsigned char
 pci_read_byte(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
@@ -30,7 +30,7 @@ pci_read_byte(unsigned addr)
 /**
  * Read a long from the pci config space.
  */
-static unsigned
+unsigned
 pci_read_long(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
@@ -49,7 +49,7 @@ pci_write_long(unsigned addr, unsigned value)
 
 
 /* Fillout pci_device structure. */
-static void
+void
 populate_device_info(uint32_t cfg_address, struct pci_device *dev)
 {
   uint32_t vendor_id = pci_read_long(cfg_address + PCI_CFG_VENDOR_ID);
@@ -90,6 +90,21 @@ pci_find_device_by_class(uint8_t class, uint8_t subclass,
     return false;    
   }
 }
+
+unsigned char
+pci_find_cap(unsigned addr, unsigned char id)
+{
+  if (~pci_read_long(addr+PCI_CONF_HDR_CMD) & 0x100000)
+    return 0;
+  unsigned char cap_offset = pci_read_byte(addr+PCI_CONF_HDR_CAP);
+  while (cap_offset)
+    if (id == pci_read_byte(addr+cap_offset))
+      return cap_offset;
+    else
+      cap_offset = pci_read_byte(addr+cap_offset+PCI_CAP_OFFSET);
+  return 0;
+}
+
 
 uint32_t
 pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset)
