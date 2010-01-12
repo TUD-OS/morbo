@@ -24,9 +24,14 @@ SECTIONS
   .data :
   {
     *(.data .data.*);
+  }
+
+  .bss :
+  {
     *(COMMON);
     *(.bss  .bss.*);
-  } : all
+    . = ALIGN(0x200000);
+  }
 
   /DISCARD/ :
   {
