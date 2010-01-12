@@ -165,45 +165,44 @@ main(uint32_t magic, struct mbi *mbi)
       printf("Device: %s\n", dev.db->device_name);
 
       uint16_t bdf =  dev.cfg_address >> 8;
-      if (!pci_find_cap(dev.cfg_address, PCI_CAP_ID_EXP))
-	{
-	  /* we are not PCIe device, thus we probably sit behind a bridge - scan the root bus*/
-	  for (unsigned device=0; device< 32; device++) {
-	    uint8_t maxfunc = 0;
-	    for (unsigned func = 0; func <= maxfunc; func++) {
-	      uint32_t addr = 0x80000000 | device<<11 | func<<8;
+      if (!pci_find_cap(dev.cfg_address, PCI_CAP_ID_EXP)) {
+        /* we are not PCIe device, thus we probably sit behind a bridge - scan the root bus*/
+        for (unsigned device=0; device < 32; device++) {
+          uint8_t maxfunc = 0;
+          for (unsigned func = 0; func <= maxfunc; func++) {
+            uint32_t addr = 0x80000000 | device<<11 | func<<8;
 	      
-	      if (!maxfunc && pci_read_byte(addr+14) & 0x80)
-		maxfunc=7;
+            if (!maxfunc && pci_read_byte(addr+14) & 0x80)
+              maxfunc=7;
 
-	      // is this a bridge and is our bus encoded from it?
-	      if ((((PCI_CLASS_BRIDGE_DEV << 8) | PCI_SUBCLASS_PCI_BRIDGE) == (pci_read_long(addr+0x8) >> 16))
-		  && (pci_read_byte(addr + 25) <= (bdf >> 8)  && pci_read_byte(addr + 26) >= (bdf >> 8)))
-		{
-		  struct pci_device bridgedev;
-		  populate_device_info(addr, &bridgedev);
-		  printf("Bridge 0.%x.%x: %s\n", device, func, bridgedev.db->device_name);
+            // is this a bridge and is our bus encoded from it?
+            if ((((PCI_CLASS_BRIDGE_DEV << 8) | PCI_SUBCLASS_PCI_BRIDGE) == (pci_read_long(addr+0x8) >> 16))
+                && (pci_read_byte(addr + 25) <= (bdf >> 8)  && pci_read_byte(addr + 26) >= (bdf >> 8)))
+              {
+                struct pci_device bridgedev;
+                populate_device_info(addr, &bridgedev);
+                printf("Bridge 0.%x.%x: %s\n", device, func, bridgedev.db->device_name);
 
-		  /*
-		    check wether we have a PCIe->PCI-X bridge and need
-		    to add an additional RMRR for claimed
-		    transactions.
-		  */
-		  uint8_t capofs = pci_find_cap(addr, PCI_CAP_ID_EXP);
-		  if (capofs && ((pci_read_byte(addr + capofs + 2) >> 4) == PCI_EXP_TYPE_PCI_BRIDGE))
-		    {
-		      printf("Add additional rmrr for secondary bus of PCIe->PCIX/PCI bridge.\n");
-		      add_rmrr_entry(newdmar, additions[i].base, additions[i].size, pci_read_byte(addr + 25) << 8);
-		    }
-		  else
-		    {
-		      printf("Add rmrr for legacy PCI bridge instead.\n");
-		      bdf = (device << 3) | func;
-		    }
-		}
-	    }
-	  }
-	}
+                /*
+                  check wether we have a PCIe->PCI-X bridge and need
+                  to add an additional RMRR for claimed
+                  transactions.
+                */
+                uint8_t capofs = pci_find_cap(addr, PCI_CAP_ID_EXP);
+                if (capofs && ((pci_read_byte(addr + capofs + 2) >> 4) == PCI_EXP_TYPE_PCI_BRIDGE))
+                  {
+                    printf("Add additional RMRR for secondary bus of PCIe->PCIX/PCI bridge.\n");
+                    add_rmrr_entry(newdmar, additions[i].base, additions[i].size, pci_read_byte(addr + 25) << 8);
+                  }
+                else
+                  {
+                    printf("Add RMRR for legacy PCI bridge instead.\n");
+                    bdf = (device << 3) | func;
+                  }
+              }
+          }
+        }
+      }
       add_rmrr_entry(newdmar, additions[i].base, additions[i].size, bdf);
     }
 
