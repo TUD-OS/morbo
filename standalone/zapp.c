@@ -211,7 +211,7 @@ main(uint32_t magic, struct mbi *mbi)
 
     if (rsdp->rev >= 2) {
       /* XXX Crude... */
-      struct acpi_table *xsdt = (struct acpi_table *)(rsdp->xsdt);
+      struct acpi_table *xsdt = (struct acpi_table *)((uintptr_t)rsdp->xsdt);
 
       for (uint64_t *cur = (uint64_t*)(xsdt+1);
 	   acpi_in_table(xsdt, cur);
