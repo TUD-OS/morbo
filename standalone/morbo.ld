@@ -30,7 +30,7 @@ SECTIONS
   {
     *(COMMON);
     *(.bss  .bss.*);
-    . = ALIGN(0x200000);
+    . = ALIGN(0x80000);
   }
 
   /DISCARD/ :
