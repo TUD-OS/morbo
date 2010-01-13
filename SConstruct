@@ -78,10 +78,6 @@ if not conf.CheckCHeader('slang.h'):
        print('Could not find slang headers.')
        build_fw_scan = False
 
-if not conf.CheckCHeader('gc.h'):
-       print('Could not find boehm-gc headers.')
-       build_fw_scan = False
-
 if not conf.CheckFunc('SLsmg_init_smg'):
        print('Could not link to slang.')
        build_fw_scan = False

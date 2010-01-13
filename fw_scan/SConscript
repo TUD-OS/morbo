@@ -7,7 +7,6 @@ henv = fw_env.Clone()
 elf_henv = henv.Clone()
 elf_henv['CFLAGS'] += ' -D_POSIX_SOURCE'
 elf_henv['CPPPATH'] += ['#include']
-elf_henv['LIBS'] += ['gc']
 
 binaries = [ elf_henv.Program('fw_scan', ['fw_scan.c', 'fw_b0rken.c']),
              ]

@@ -21,7 +21,6 @@
 #include <sys/mman.h>
 
 /* Libraries */
-#include <gc.h>
 #include <slang.h>
 #include <libraw1394/raw1394.h>
 #include <libraw1394/csr.h>
@@ -122,7 +121,8 @@ collect_node_info(unsigned target_no)
 {
   assert(target_no < 63);
 
-  struct node_info *info = GC_NEW(struct node_info);
+  static struct node_info nodes[63];
+  struct node_info *info = &nodes[target_no];
   quadlet_t crom_buf[32];
 
   info->status    = UNDEF;
@@ -297,8 +297,6 @@ static void bw_info(uint64_t bytes, struct timeval *start, struct timeval *end)
 int
 main(int argc, char **argv)
 {
-  GC_INIT();
-
   /* Command line parsing */
   int opt;
 
@@ -372,13 +370,10 @@ main(int argc, char **argv)
     SLsmg_set_color(COLOR_STATUS);
 
     static int i = 0;
-    SLsmg_printf("Hit q to quit | %d nodes | generation %u | libraw1394 %s | %zx/%zx %zx",
+    SLsmg_printf("Hit q to quit | %d nodes | generation %u | libraw1394 %s",
 		 nodes,
 		 raw1394_get_generation(fw_handle), 
-		 raw1394_get_libversion(),
-		 GC_get_free_bytes(),
-		 GC_get_heap_size(),
-		 GC_get_bytes_since_gc()
+		 raw1394_get_libversion()
 		 );
     SLsmg_erase_eol();
 
