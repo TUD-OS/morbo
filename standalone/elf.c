@@ -31,10 +31,8 @@ static void
 gen_mov(uint8_t **code, int reg, uint32_t constant)
 {
   byte_out(code, 0xB8 | reg);
-  byte_out(code, constant);
-  byte_out(code, constant >> 8);
-  byte_out(code, constant >> 16);
-  byte_out(code, constant >> 24);
+  *((uint32_t *)*code) = constant;
+  *code += sizeof(uint32_t);
 }
 
 static void
