@@ -110,8 +110,10 @@ main(uint32_t magic, struct mbi *mbi)
   struct acpi_table *rsdt = (struct acpi_table *)(rsdp->rsdt);
   printf("RSDT at %p.\n", rsdt);
 
-  struct dmar *dmar = *(struct dmar **)acpi_get_table_ptr(rsdt, "DMAR");
-  if (!dmar) return -1;
+  struct dmar **pdmar = (struct dmar **)acpi_get_table_ptr(rsdt, "DMAR");
+  if (!pdmar || !*pdmar) goto next;
+
+  struct dmar *dmar = *pdmar;
   printf("DMAR at %p (0x%x bytes).\n", dmar, dmar->generic.size);
 
   for (struct dmar_entry *e = &dmar->first_entry;
@@ -220,7 +222,7 @@ main(uint32_t magic, struct mbi *mbi)
       acpi_fix_checksum(xsdt);
     }
   }
-
+ next:
   printf("Starting next module.\n");
   return start_module(mbi);
 }
