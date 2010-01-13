@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <poll.h>
-#include <gc.h>
 #include <libraw1394/raw1394.h>
 
 #include "fw_b0rken.h"
