@@ -55,6 +55,11 @@ struct pci_device {
   uint32_t cfg_address;		/* Address of config space */
 };
 
+/* Low-Level PCI Access */
+uint8_t pci_read_uint8(unsigned addr);
+uint32_t pci_read_uint32(unsigned addr);
+
+
 uint32_t pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset);
 
 /* Find a device by its class. Always finds the last device of the
@@ -62,5 +67,7 @@ uint32_t pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset);
    pci_device structure. Otherwise, returns false. */
 bool pci_find_device_by_class(uint8_t class, uint8_t subclass,
 			      struct pci_device *dev);
+
+unsigned char pci_find_cap(unsigned addr, unsigned char id);
 
 /* EOF */

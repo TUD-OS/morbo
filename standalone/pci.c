@@ -20,8 +20,8 @@
 /**
  * Read a byte from the pci config space.
  */
-unsigned char
-pci_read_byte(unsigned addr)
+uint8_t
+pci_read_uint8(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
   return inb(PCI_DATA_PORT + (addr & 3));
@@ -30,8 +30,8 @@ pci_read_byte(unsigned addr)
 /**
  * Read a long from the pci config space.
  */
-unsigned
-pci_read_long(unsigned addr)
+uint32_t
+pci_read_uint32(unsigned addr)
 {
   outl(PCI_ADDR_PORT, addr);
   return inl(PCI_DATA_PORT);
@@ -41,7 +41,7 @@ pci_read_long(unsigned addr)
  * Write a long to the pci config space.
  */
 static void
-pci_write_long(unsigned addr, unsigned value)
+pci_write_uint32(unsigned addr, uint32_t value)
 {
   outl(PCI_ADDR_PORT, addr);
   outl(PCI_DATA_PORT, value);
@@ -52,7 +52,7 @@ pci_write_long(unsigned addr, unsigned value)
 void
 populate_device_info(uint32_t cfg_address, struct pci_device *dev)
 {
-  uint32_t vendor_id = pci_read_long(cfg_address + PCI_CFG_VENDOR_ID);
+  uint32_t vendor_id = pci_read_uint32(cfg_address + PCI_CFG_VENDOR_ID);
   uint32_t device_id = vendor_id >> 16;
   vendor_id &= 0xFFFF;
   
@@ -76,9 +76,9 @@ pci_find_device_by_class(uint8_t class, uint8_t subclass,
     for (unsigned func = 0; func <= maxfunc; func++) {
       uint32_t addr = 0x80000000 | i<<11 | func<<8;
 
-      if (!maxfunc && pci_read_byte(addr+14) & 0x80)
+      if (!maxfunc && pci_read_uint8(addr+14) & 0x80)
 	maxfunc=7;
-      if (full_class == (pci_read_long(addr+0x8) >> 16))
+      if (full_class == (pci_read_uint32(addr+0x8) >> 16))
 	res = addr;
     }
   }
@@ -94,14 +94,14 @@ pci_find_device_by_class(uint8_t class, uint8_t subclass,
 unsigned char
 pci_find_cap(unsigned addr, unsigned char id)
 {
-  if (~pci_read_long(addr+PCI_CONF_HDR_CMD) & 0x100000)
+  if (~pci_read_uint32(addr+PCI_CONF_HDR_CMD) & 0x100000)
     return 0;
-  unsigned char cap_offset = pci_read_byte(addr+PCI_CONF_HDR_CAP);
+  unsigned char cap_offset = pci_read_uint8(addr+PCI_CONF_HDR_CAP);
   while (cap_offset)
-    if (id == pci_read_byte(addr+cap_offset))
+    if (id == pci_read_uint8(addr+cap_offset))
       return cap_offset;
     else
-      cap_offset = pci_read_byte(addr+cap_offset+PCI_CAP_OFFSET);
+      cap_offset = pci_read_uint8(addr+cap_offset+PCI_CAP_OFFSET);
   return 0;
 }
 
@@ -109,7 +109,7 @@ pci_find_cap(unsigned addr, unsigned char id)
 uint32_t
 pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset)
 {
-  return pci_read_long(dev->cfg_address + offset);
+  return pci_read_uint32(dev->cfg_address + offset);
 }
 
 /* EOF */
