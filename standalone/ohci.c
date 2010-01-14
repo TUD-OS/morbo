@@ -247,9 +247,10 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   assert((uint32_t)ohci->ohci_regs != 0xFFFFFFFF, "Invalid PCI read?");
 
+  uint32_t vendor = pci_read_uint32(pci_dev->cfg_address + PCI_CFG_VENDOR_ID);
   OHCI_INFO("Controller (%x:%x) = %s.\n",
-	    pci_dev->db->vendor_id,
-	    pci_dev->db->device_id,
+	    vendor & 0xffff,
+	    (vendor >> 16) & 0xffff,
 	    pci_dev->db->device_name);
 
   if (ohci->ohci_regs == NULL) {
@@ -478,14 +479,9 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 
   if (~0U != (OHCI_REG(ohci, PhyReqFilterLoSet) & OHCI_REG(ohci, PhyReqFilterHiSet) &
 	      OHCI_REG(ohci, AsReqFilterLoSet)  & OHCI_REG(ohci, AsReqFilterHiSet))) {
-    OHCI_INFO("XXX Something is seriously b0rken.\n");
-    wait(1000);
-    OHCI_INFO("Trying to reinitialize the device...\n");
-    if (!ohci_initialize(ohci->pci, ohci, ohci->pci)) {
-      OHCI_INFO("Reinitialization failed.\n");
-      __exit(-1);
-    }
-    return;
+    printf("Warning: Your controller seems confused. ReqFilters: 0x%llx 0x%llx\n", 
+	   (unsigned long long) OHCI_REG(ohci, PhyReqFilterHiSet) << 32 | OHCI_REG(ohci, PhyReqFilterLoSet),
+	   (unsigned long long) OHCI_REG(ohci,  AsReqFilterHiSet) << 32 | OHCI_REG(ohci, AsReqFilterLoSet));
   }
 
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);

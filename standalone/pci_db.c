@@ -13,6 +13,8 @@ static const struct pci_db_entry vendor_db[] = {
   /* NEC */
   { 0x1033,   0x00e7,   NO_QUIRKS, "NEC Electronics IEEE1394 OHCI 1.1 2-port PHY-Link Ctrlr" },
   { 0x1033,   WILDCARD, NO_QUIRKS, "NEC Electronics Unknown Device" },
+  /* JMicron */
+  { 0x197b,   0x2380,   NO_QUIRKS, "JMicron Technology Corp. IEEE 1394 Host Controller"},
   /* Unknown (don't remove this item) */
   { WILDCARD, WILDCARD, NO_QUIRKS, "Unknown Device" }
 };
