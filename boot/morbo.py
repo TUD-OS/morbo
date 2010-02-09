@@ -66,7 +66,9 @@ def boot(files, fw=firewire.RemoteFw()):
     print "read config files"
     for name in files:
     	read_pulsar_config(name, state)
-    print map(lambda x: re.sub("\s+", " ", str(x)), state)
+    guidlo = struct.unpack("I", fw.read(CROM_ADDR +  3*4, 4))[0]
+    guidhi = struct.unpack("I", fw.read(CROM_ADDR +  4*4, 4))[0]
+    print >>sys.stderr, "GUID %08x%08x"%(guidlo, guidhi), map(lambda x: re.sub("\s+", " ", str(x)), state)
 
     print "push modules"
     mods = []
