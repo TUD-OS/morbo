@@ -144,7 +144,6 @@ wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t va
   }
 }
 
-
 static uint8_t
 phy_read(struct ohci_controller *ohci, uint8_t addr)
 {
@@ -364,7 +363,9 @@ ohci_initialize(const struct pci_device *pci_dev,
   if (OHCI_REG(ohci, HCControlSet) & HCControl_programPhyEnable) {
     OHCI_INFO("Enabling IEEE1394a enhancements.\n");
     OHCI_REG(ohci, HCControlSet) = HCControl_aPhyEnhanceEnable;
-
+    /* XXX We should probably do more here. Check:
+       http://git.kernel.org/?p=linux/kernel/git/ieee1394/linux1394-2.6.git;a=commit;h=925e7a6504966b838c519f009086982c68e0666f
+    */
   } else {
     OHCI_INFO("IEEE1394a enhancements are already configured.\n");
   }
@@ -454,7 +455,6 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   assert(OHCI_REG(ohci, LinkControlSet) & LinkControl_rcvSelfID,
 	 "selfID receive borken");
   wait_loop(ohci, IntEventSet, selfIDComplete, selfIDComplete, 1000);
-  OHCI_INFO("Bus reset complete. Clearing event bits.\n");
 
   /* We are done. Clear bus reset bit. */
   OHCI_REG(ohci, IntEventClear) = busReset;
@@ -474,15 +474,14 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
 
   uint32_t selfid_count = OHCI_REG(ohci, SelfIDCount);
   uint8_t  selfid_words = (selfid_count >> 2) & 0xFF;
-  OHCI_INFO("SelfID generation 0x%x, bytes 0x%x\n",
-	    (selfid_count >> 16) & 0xFF,
-	    selfid_words * 4);
 
   for (unsigned i = 1; i < selfid_words; i += 2) {
     assert(i < sizeof(uint32_t[504])/sizeof(uint32_t), "buffer overflow");
     uint32_t cur = ohci->selfid_buf[i];
     uint32_t next = ohci->selfid_buf[i+1];
-    OHCI_INFO("SelfID buf[0x%x] = 0x%x (%s)\n", i, cur, (cur == ~next) ? "OK" : "CORRUPT");
+    OHCI_INFO("SelfID#%x buf[0x%x] = 0x%x (%s)\n",
+              (selfid_count >> 16) & 0xFF, /* Generation */
+              i, cur, (cur == ~next) ? "OK" : "CORRUPT");
   }
 
 }
