@@ -36,6 +36,7 @@ vprintf(const char *fmt, va_list ap)
   int c;
   enum { PLAIN, INFMT } state = PLAIN;
   unsigned longness = 0;
+  unsigned fill = 0;
   
   while ((c = *fmt++)) {
     
@@ -53,6 +54,9 @@ vprintf(const char *fmt, va_list ap)
       break;                    /* case PLAIN */
     case INFMT:
       switch (c) {
+      case '0' ... '9':
+        fill = c - '0';
+        break;
       case 'l':
         longness++;
         break;
@@ -73,8 +77,11 @@ vprintf(const char *fmt, va_list ap)
 	  *s++ = '0' + u % 10U;
 	while (u /= 10U);
       dumpbuf:;
-	while (--s >= buf)
-	    out_char(*s);
+        while ((s - buf) < fill--)
+          out_char('0');
+	while (--s >= buf) {
+          out_char(*s);
+        }
         state = PLAIN;
 	break;
       case 'p':
@@ -89,12 +96,16 @@ vprintf(const char *fmt, va_list ap)
 	while (ull >>= 4);
 	goto dumpbuf;
       }
+
+      if (state == PLAIN) {
+        longness = 0;
+        fill     = 0;
+      }
       break;                    /* case INFMT */
     }
   }
   
   return;
-  
 }
 
 void

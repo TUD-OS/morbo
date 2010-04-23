@@ -10,6 +10,7 @@ fenv['LIBPATH'] = ['.']
 
 stand = fenv.StaticLibrary('stand',
                            [ 'elf.c',
+                             'hexdump.c',
                              'mbi.c',
                              'pci.c',
                              'pci_db.c',
