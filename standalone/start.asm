@@ -13,11 +13,10 @@ _mbheader:
         dd -(3h + 1BADB002h)    ; checksum
 
 _start:
-        lea     esp, [_stack]
+        mov     esp, _stack
         mov     edx, ebx
-        call    main
-        call    __exit
-
+        push    __exit
+        jmp      main
 
 jmp_multiboot:
         xchg    eax, ebx
