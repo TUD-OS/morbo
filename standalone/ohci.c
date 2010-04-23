@@ -199,7 +199,6 @@ ohci_softreset(struct ohci_controller *ohci)
   OHCI_INFO("Soft-resetting controller...\n");
   OHCI_REG(ohci, HCControlSet) = HCControl_softReset;
   wait_loop(ohci, HCControlSet, HCControl_softReset, 0, RESET_TIMEOUT);
-  OHCI_INFO("Reset completed.\n");
 }
 
 /* Check version of controller. Returns true, if it is supported. */
@@ -383,9 +382,9 @@ ohci_initialize(const struct pci_device *pci_dev,
 
   // allow access up to 0xffff00000000
   OHCI_REG(ohci, PhyUpperBound) = 0xFFFF0000;
-  if (OHCI_REG(ohci, PhyUpperBound) == 0) {
-    OHCI_INFO("PhyUpperBound doesn't seem to be implemented. (No cause for alarm.)\n");
-  }
+  /* if (OHCI_REG(ohci, PhyUpperBound) == 0) { */
+  /*   OHCI_INFO("PhyUpperBound doesn't seem to be implemented. (No cause for alarm.)\n"); */
+  /* } */
 
   /* Set SelfID buffer */
   ohci->selfid_buf = mbi_alloc_protected_memory(multiboot_info, sizeof(uint32_t[504]), 11);
@@ -403,8 +402,6 @@ ohci_initialize(const struct pci_device *pci_dev,
   }
 
   /* Set Config ROM */
-  OHCI_INFO("Updating config ROM.\n");
-
   ohci->crom = mbi_alloc_protected_memory(multiboot_info, sizeof(ohci_config_rom_t), 10);
   OHCI_INFO("ConfigROM allocated at %p.\n", ohci->crom);
 
