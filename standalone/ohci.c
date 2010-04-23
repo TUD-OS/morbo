@@ -31,8 +31,6 @@
 #define PHY_TIMEOUT   10000
 #define MISC_TIMEOUT  10000
 
-//#define FANCY_WAIT
-
 /* Globals */
 
 /* Some debugging macros */
@@ -138,22 +136,12 @@ ohci_load_crom(struct ohci_controller *ohci)
 static void
 wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t value, uint32_t max_ticks)
 {
-#ifdef FANCY_WAIT
-  const char waitchars[] = "|/-\\";
-  OHCI_INFO("Waiting...  ");
-#endif
   unsigned i = 0;
 
   while ((OHCI_REG(ohci, reg) & mask) != value) {
     wait(1);
-#ifdef FANCY_WAIT
-    printf("[D%c", waitchars[i++ & 3]);
-#endif
     assert((max_ticks == NEVER) || (i < max_ticks), "Timeout!");
   }
-#ifdef FANCY_WAIT
-  printf("\n");
-#endif
 }
 
 
