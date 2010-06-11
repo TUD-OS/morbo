@@ -38,9 +38,11 @@ class RemoteFw:
     def send_init(self):
         msg = struct.pack("I", 0x500)
         self.write(0xfee00000, msg)
+
     def send_nmi(self):
         msg = struct.pack("I", 0x0400)
         self.write(0xfee00000, msg)
+
     def send_extint(self, vec):
         msg = struct.pack("I", vec & 0xff)
         self.write(0xfee00000, msg)

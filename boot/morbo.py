@@ -15,39 +15,39 @@ def read_pulsar_config(name, state):
     s = open(os.path.join(state[0], name)).read()
     s = s.replace("\\\n", "")
     for line in s.split("\n"):
-        line = line.split("#")[0].strip()
-        if not line:  continue
-        param = line[4:].strip()
-        if line.startswith("root"):
-            state[0] = param
-        elif line.startswith("exec") or line.startswith("load"):
-            state.append(os.path.join(state[0], param))
-        elif line.startswith("conf"):
-            read_pulsar_config(param, state)
-        elif line.startswith("addr"):
-            state.append(int(param, 16))
-        else:
-            print "ignored line:", repr(line)
+	line = line.split("#")[0].strip()
+	if not line:  continue
+	param = line[4:].strip()
+	if line.startswith("root"):
+	    state[0] = param
+	elif line.startswith("exec") or line.startswith("load"):
+	    state.append(os.path.join(state[0], param))
+	elif line.startswith("conf"):
+	    read_pulsar_config(param, state)
+	elif line.startswith("addr"):
+	    state.append(int(param, 16))
+	else:
+	    print "ignored line:", repr(line)
 
 def is_morbo(fw=firewire.RemoteFw()):
     MORBO_VENDOR_ID = 0xCAFFEE
     MORBO_MODEL_ID  = 0x000002
-    
+
     # XXX These indices are hardcoded for Morbo's ConfigROM. We should
     # implement proper parsing...
     try:
-        vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
-        model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
-        rmbi   = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
+	vendor = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  6*4, 4))[0]) & 0xFFFFFF
+	model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
+	rmbi   = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     except firewire.FirewireException, err:
-        vendor = 0
-        model  = 0
-        rmbi   = 0
+	vendor = 0
+	model  = 0
+	rmbi   = 0
 
     if ((vendor == MORBO_VENDOR_ID) and (model == MORBO_MODEL_ID)) and (fw.read_quadlet(rmbi + 5*4) == 0):
-        return (True, vendor, model, rmbi)
+	return (True, vendor, model, rmbi)
     else:
-        return (False, 0, 0, 0)
+	return (False, 0, 0, 0)
 
 def boot(files, fw=firewire.RemoteFw()):
     loadaddr = 0x01000000
@@ -73,18 +73,18 @@ def boot(files, fw=firewire.RemoteFw()):
     print "push modules"
     mods = []
     for item in state[1:]:
-        if type(item) == type(0):
-            loadaddr = item
-        else:
-            name = item.split()[0]
-            print "    mod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 50), loadaddr),
-            data = open(name).read()
-            fw.write(loadaddr, data)
-            mods.append((loadaddr, loadaddr + len(data), item))
-            loadaddr += len(data)
-            print "%8x]"%loadaddr
-            loadaddr += (0x1000 - (loadaddr & 0xfff)) & 0xfff
-    
+	if type(item) != type(""):
+	    loadaddr = item
+	else:
+	    name = item.split()[0]
+	    print "    mod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 50), loadaddr),
+	    data = open(name).read()
+	    fw.write(loadaddr, data)
+	    mods.append((loadaddr, loadaddr + len(data), item))
+	    loadaddr += len(data)
+	    print "%8x]"%loadaddr
+	    loadaddr += (0x1000 - (loadaddr & 0xfff)) & 0xfff
+
     # there is no good place for the multiboot modules!
     loadaddr = remote_mbi + 0x4000
 
@@ -93,37 +93,36 @@ def boot(files, fw=firewire.RemoteFw()):
     space = 16*len(mods)
     cmdlines = ""
     for m in mods:
-        marray.append(struct.pack("IIII", m[0], m[1], loadaddr + space + len(cmdlines), 0))
-        cmdlines += m[2] + "\x00"
+	marray.append(struct.pack("IIII", m[0], m[1], loadaddr + space + len(cmdlines), 0))
+	cmdlines += m[2] + "\x00"
     fw.write(loadaddr, "".join(marray) + cmdlines)
-                 
+
     mbi = list(struct.unpack("I"*7, fw.read(remote_mbi, 28)))
     mbi[0] |= 1<<3
     mbi[6]  = loadaddr
     fw.write(remote_mbi, struct.pack("I"*7, *mbi))
-    
+
     print("Boot!")
     # Morbo waits for the module count to change. Update it after the
     # rest of the multiboot info is written.
     fw.write(remote_mbi + 5*4, struct.pack("I", len(mods)))
     if (len(mods) == 1):
-        print("XXX Only one module loaded! We might try to DMA to a running node...");
+	print("XXX Only one module loaded! We might try to DMA to a running node...");
 
 if __name__ == "__main__":
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "", ["once"])
-        opts = set([ a for (a, b) in opts ]) # Strip parameter
-        if not (opts & set(["--once"])):
-            print("Waiting for a Morbo node...")
-            while not is_morbo()[0]:
-                time.sleep(1)
-        boot([args[0]])
+	opts, args = getopt.getopt(sys.argv[1:], "", ["once"])
+	opts = set([ a for (a, b) in opts ]) # Strip parameter
+	if not (opts & set(["--once"])):
+	    print("Waiting for a Morbo node...")
+	    while not is_morbo()[0]:
+		time.sleep(1)
+	boot([args[0]])
     except getopt.GetoptError, err:
-        # print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        print("Options:")
-        print("  --once    Don't wait for a node to come up.")
-        sys.exit(2)
+	# print help information and exit:
+	print(str(err)) # will print something like "option -a not recognized"
+	print("Options:")
+	print("  --once    Don't wait for a node to come up.")
+	sys.exit(2)
     except KeyboardInterrupt, err:
-        print("Interrupted.");
-
+	print("Interrupted.");
