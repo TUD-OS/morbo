@@ -52,10 +52,19 @@ zapp = fenv.Program('zapp.debug',
 Depends(zapp, 'morbo.ld')
 zapp = Command('zapp', zapp, 'strip -o $TARGET $SOURCE')
 
+# VILO
+
+vilo = fenv.Program('vilo.debug',
+                    [ 'vilo.c',
+                      'realmode.asm',
+                      ],
+                    LIBS=['stand'])
+Depends(vilo, 'morbo.ld')
+vilo = Command('vilo', vilo, 'strip -o $TARGET $SOURCE')
 
 # Installation
 
-Install('#tftp', [ morbo, zapp ])
+Install('#tftp', [ morbo, zapp, vilo ])
 
 # Incomplete version of Option ROM
 
@@ -71,7 +80,5 @@ rom = rom_env.Program('option-rom.bin-unfixed',
 
 rom_fixed = fenv.Command('option-rom.bin', ['rom_fixup.py', rom],
                          "${SOURCES[0]} ${SOURCES[1:]} $TARGET")
-
-
 
 # EOF
