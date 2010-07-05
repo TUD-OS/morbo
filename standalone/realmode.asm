@@ -1,11 +1,13 @@
 
         CPU P3
+
+	%DEFINE RELBASE 0x9F000
         
         GLOBAL torealmode
         
-        SECTION .text.torealmode EXEC NOWRITE ALIGN=8
+        SECTION .text.torealmode EXEC NOWRITE ALIGN=16
 	;; EAX = seg:off
-	;; Overwrite 7b00:0000
+	;; Overwrites memory at RELBASE
 torealmode:
 	mov [.target_off], ax
 	shr eax, 16
@@ -15,18 +17,22 @@ torealmode:
 .get_addr:
 	pop ebp
 
-	cmp ebp, 0x7B00 + (.get_addr - torealmode)
+	cmp ebp, RELBASE + (.get_addr - torealmode)
 	je .already_relocated
 	mov esi, torealmode
-	mov edi, 0x7B00
+	mov edi, RELBASE
 	mov ecx, .end - torealmode
 	rep movsb
-	jmp 0x7B00
+	jmp RELBASE
 .already_relocated:
 
-	lgdt [0x7b00 + .gdt_ptr - torealmode]
-	jmp far 0x8:(0x7b00 + .cs_switch - torealmode)
+	lidt [RELBASE + .idt_ptr - torealmode]
+
+	lgdt [RELBASE + .gdt_ptr - torealmode]
+	;jmp far 0x8:(RELBASE + .cs_switch - torealmode)
+	jmp far 0x8:(.cs_switch - torealmode)
 .cs_switch:
+	BITS 16
 	mov cx, 0x10
 	mov ss, cx
 	mov ds, cx
@@ -34,13 +40,11 @@ torealmode:
 	mov fs, cx
 	mov gs, cx
 	
-	lidt [0x7b00 + .idt_ptr - torealmode]
-
 	mov eax, cr0
 	and al, 0xFE
 	mov cr0, eax
 
-	jmp far 0:(0x7b00 + .realmode_entry - torealmode)
+	jmp far (RELBASE >> 4):(.realmode_entry - torealmode)
 .realmode_entry:
 	BITS 16
 	
@@ -63,17 +67,18 @@ torealmode:
 	;; Null descriptor
 	dd 0
 	dd 0
-	;; 32-bit Code
-	dd 0x0000FFFF
-	dd 0x00409A00
+	;; 16-bit Code
+	dd 0x0000FFFF  | (RELBASE << 16)
+	;dd 0x00409A00 (32-Bit code)
+	dd 0x00009A00  | (RELBASE >> 16)
 	;; Data
 	dd 0x0000FFFF
 	dd 0x00009300
 
 .gdt_ptr dw 8*3
-	dd (.gdt - torealmode) + 0x7B00
+	dd (.gdt - torealmode) + RELBASE
 
-.idt_ptr dw 256*4
+.idt_ptr dw 256*4-1
 	dd 0
 
 .end:
