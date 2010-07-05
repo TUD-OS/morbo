@@ -31,12 +31,20 @@ enum {
 };
 
 static uint16_t serial_base;
+static bool     output_enabled;
 
 void
 serial_send (int c)
 {
+  if (!output_enabled) return;
+
+  unsigned max_tries = 0x10000;
   while (!(inb (serial_base + LSR) & LSR_TMIT_HOLD_EMPTY)) {
     asm volatile ("pause");
+    if (max_tries-- == 0) {
+      output_enabled = false;
+      return;
+    }
   }
 
   outb (serial_base + THR, c);
@@ -48,6 +56,7 @@ serial_init()
   /* Disable output if there is no serial port. */
   /* XXX This is disabled, because it is not reliable. */
   //output_enabled = (serial_ports(get_bios_data_area()) > 0);
+  output_enabled = true;
 
   /* Get our port from the BIOS data area. */
   serial_base = get_bios_data_area()->com_port[0];
