@@ -26,6 +26,13 @@ torealmode:
 	jmp RELBASE
 .already_relocated:
 
+	xor eax, eax
+	xor ebx, ebx
+	xor ecx, ecx
+	xor ebx, ebx
+	xor edx, edx
+	xor esp, esp
+	
 	lidt [RELBASE + .idt_ptr - torealmode]
 
 	lgdt [RELBASE + .gdt_ptr - torealmode]
@@ -68,14 +75,14 @@ torealmode:
 	dd 0
 	dd 0
 	;; 16-bit Code
-	dd 0x0000FFFF  | (RELBASE << 16)
+	dd 0x0000FFFF | (RELBASE << 16)
 	;dd 0x00409A00 (32-Bit code)
-	dd 0x00009A00  | (RELBASE >> 16)
+	dd 0x00009A00 | (RELBASE >> 16)
 	;; Data
 	dd 0x0000FFFF
 	dd 0x00009300
 
-.gdt_ptr dw 8*3
+.gdt_ptr dw 8*3-1
 	dd (.gdt - torealmode) + RELBASE
 
 .idt_ptr dw 256*4-1
