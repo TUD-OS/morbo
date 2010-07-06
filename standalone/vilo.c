@@ -1,5 +1,7 @@
 /* -*- Mode: C -*- */
 
+/* TODO: Inform BIOS via int 10 of new text cursor position. */
+
 #include <stdint.h>
 #include <serial.h>
 #include <mbi.h>
