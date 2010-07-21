@@ -67,7 +67,6 @@ main(uint32_t magic, struct mbi *mbi)
 
   memcpy((char *)SYS_CODE,   linux_image + setup_sects*512, linux_image_len - setup_sects*512);
 
-  extern void torealmode(uint32_t addr) __attribute__((regparm(3)));
   torealmode(SETUP_CODE + 0x200);
   __builtin_trap();
 }

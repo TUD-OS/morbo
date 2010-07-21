@@ -15,6 +15,7 @@ stand = fenv.StaticLibrary('stand',
                              'pci.c',
                              'pci_db.c',
                              'printf.c',
+                             'realmode.asm',
                              'reboot.c',
                              'serial.c',
                              'start.asm',
@@ -55,9 +56,7 @@ zapp = Command('zapp', zapp, 'strip -o $TARGET $SOURCE')
 # VILO
 
 vilo = fenv.Program('vilo.debug',
-                    [ 'vilo.c',
-                      'realmode.asm',
-                      ],
+                    [ 'vilo.c' ],
                     LIBS=['stand'])
 Depends(vilo, 'morbo.ld')
 vilo = Command('vilo', vilo, 'strip -o $TARGET $SOURCE')
