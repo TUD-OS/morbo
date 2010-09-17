@@ -24,9 +24,9 @@ if not conf.CheckCommand("yasm"):
     Exit(1)
 
 # Barfs with scons 1.2.0
-if not conf.CheckCC():
-    print("Your compiler is not usable.")
-    Exit(1)
+# if not conf.CheckCC():
+#     print("Your compiler is not usable.")
+#     Exit(1)
 
 if not (conf.CheckCHeader("stdint.h") and
         conf.CheckCHeader("stdarg.h")):
@@ -60,9 +60,9 @@ fw_env['LIBS'] += ['slang']
 conf = Configure(fw_env, custom_tests = {'CheckPKGConfig' : CheckPKGConfig,
                                        'CheckPKG' : CheckPKG })
 
-if not (conf.CheckCC() and conf.CheckCC):
-       print("Your compiler is not usable.")
-       Exit(1)
+# if not (conf.CheckCC() and conf.CheckCC):
+#        print("Your compiler is not usable.")
+#        Exit(1)
 
 if not conf.CheckPKGConfig('0.15.0'):
        print('pkg-config >= 0.15.0 not found.')
