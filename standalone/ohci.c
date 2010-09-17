@@ -26,7 +26,6 @@
 
 /* Constants */
 
-#define NEVER 0xFFFFFFFFUL
 #define RESET_TIMEOUT 10000
 #define PHY_TIMEOUT   10000
 #define MISC_TIMEOUT  10000
@@ -50,7 +49,7 @@
 
 /* TODO This could be made nicer, but C sucks... */
 static void
-ohci_generate_crom(struct ohci_controller *ohci)
+ohci_generate_crom(struct ohci_controller *ohci, unsigned speed)
 {
   ohci_config_rom_t *crom = ohci->crom;
 
@@ -62,7 +61,10 @@ ohci_generate_crom(struct ohci_controller *ohci)
 
   /* We dont want to be bus master. */
   crom->field[2] = OHCI_REG(ohci, BusOptions) & 0x0FFFFFFF;
-
+  if (speed < (crom->field[2] & 0xf)) {
+    crom->field[2] =  (crom->field[2] & ~0xf) | speed;
+  }
+  printf("BusOptions: %x speed S%d\n", OHCI_REG(ohci, BusOptions), 100 << (crom->field[2] & 0xf));
   crom->field[3] = OHCI_REG(ohci, GUIDHi);
   crom->field[4] = OHCI_REG(ohci, GUIDLo);
 
@@ -140,7 +142,10 @@ wait_loop(struct ohci_controller *ohci, uint32_t reg, uint32_t mask, uint32_t va
 
   while ((OHCI_REG(ohci, reg) & mask) != value) {
     wait(1);
-    assert((max_ticks == NEVER) || (i < max_ticks), "Timeout!");
+    if (i++ > max_ticks) {
+      printf("waiting for reg %x mask %x value %x\n", reg, mask, value);
+      __exit(0xdeeed);
+    }
   }
 }
 
@@ -225,7 +230,8 @@ ohci_check_version(struct ohci_controller *ohci)
 bool
 ohci_initialize(const struct pci_device *pci_dev,
 		struct ohci_controller *ohci,
-		bool posted_writes)
+		bool posted_writes,
+		unsigned speed)
 {
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
@@ -389,7 +395,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   /* Set SelfID buffer */
   ohci->selfid_buf = mbi_alloc_protected_memory(multiboot_info, sizeof(uint32_t[504]), 11);
   OHCI_INFO("Allocated SelfID buffer at %p.\n", ohci->selfid_buf);
- 
+
   ohci->selfid_buf[0] = 0xDEADBEEF; /* error checking */
   OHCI_REG(ohci, SelfIDBuffer) = (uint32_t)ohci->selfid_buf;
   OHCI_REG(ohci, LinkControlSet) = LinkControl_rcvSelfID;
@@ -405,7 +411,7 @@ ohci_initialize(const struct pci_device *pci_dev,
   ohci->crom = mbi_alloc_protected_memory(multiboot_info, sizeof(ohci_config_rom_t), 10);
   OHCI_INFO("ConfigROM allocated at %p.\n", ohci->crom);
 
-  ohci_generate_crom(ohci);
+  ohci_generate_crom(ohci, speed);
   ohci_load_crom(ohci);
 
   /* enable link */
