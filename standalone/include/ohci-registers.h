@@ -145,6 +145,7 @@ enum phy_port_info {
 #define isochRx		0x00000080
 #define postedWriteErr		0x00000100
 #define lockRespErr		0x00000200
+#define selfIDComplete2		0x00008000
 #define selfIDComplete		0x00010000
 #define busReset		0x00020000
 #define regAccessFail		0x00040000

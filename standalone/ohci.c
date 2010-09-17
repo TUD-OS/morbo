@@ -457,10 +457,10 @@ ohci_handle_bus_reset(struct ohci_controller *ohci)
   /* Wait for completion of SelfID phase. */
   assert(OHCI_REG(ohci, LinkControlSet) & LinkControl_rcvSelfID,
 	 "selfID receive borken");
-  wait_loop(ohci, IntEventSet, selfIDComplete, selfIDComplete, 1000);
+  wait_loop(ohci, IntEventSet, selfIDComplete2, selfIDComplete2, 1000);
 
-  /* We are done. Clear bus reset bit. */
-  OHCI_REG(ohci, IntEventClear) = busReset;
+  /* We are done. Clear bus reset indication bits. */
+  OHCI_REG(ohci, IntEventClear) = busReset | selfIDComplete2;
 
   /* Reset request filters. They are cleared on bus reset. */
   OHCI_REG(ohci, AsReqFilterHiSet) = ~0U;
