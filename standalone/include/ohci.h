@@ -23,11 +23,19 @@ struct ohci_controller {
 
 };
 
+enum link_speed {
+  SPEED_S100 = 0U,
+  SPEED_S200 = 1U,
+  SPEED_S400 = 2U,
+
+  SPEED_MAX  = ~0U,
+};
+
 void    ohci_poll_events(struct ohci_controller *ohci);
 bool    ohci_initialize(const struct pci_device *pci_dev,
 			struct ohci_controller *ohci,
 			bool posted_writes,
-			unsigned speed);
+			enum link_speed speed);
 
 uint8_t ohci_wait_nodeid(struct ohci_controller *ohci);
 void    ohci_force_bus_reset(struct ohci_controller *ohci);

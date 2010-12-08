@@ -24,7 +24,7 @@ static bool force_enable_apic = true;
 static bool keep_going = false;
 static bool do_wait = false;
 static bool posted_writes = false;
-static unsigned speed = ~0;
+static enum link_speed speed = SPEED_MAX;
 
 void
 parse_cmdline(const char *cmdline)
@@ -54,8 +54,12 @@ parse_cmdline(const char *cmdline)
       posted_writes = true;
     } else if (strcmp(token, "wait") == 0) {
       do_wait = true;
-    } else if (strncmp(token, "speed=", 6) == 0) {
-      speed = strtoull(token+6, NULL, 0);
+    } else if (strcmp(token, "s100") == 0) { /* Where is the regexp support? ;-) */
+      speed = SPEED_S100;
+    } else if (strcmp(token, "s200") == 0) {
+      speed = SPEED_S200;
+    } else if (strcmp(token, "s400") == 0) {
+      speed = SPEED_S400;
     } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) == 0) {
       char *args_ptr = NULL;
       char *width = strtok_r(token + sizeof("mempatch=")-1, ",", &args_ptr);

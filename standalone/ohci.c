@@ -49,7 +49,7 @@
 
 /* TODO This could be made nicer, but C sucks... */
 static void
-ohci_generate_crom(struct ohci_controller *ohci, unsigned speed)
+ohci_generate_crom(struct ohci_controller *ohci, enum link_speed speed)
 {
   ohci_config_rom_t *crom = ohci->crom;
 
@@ -231,7 +231,7 @@ bool
 ohci_initialize(const struct pci_device *pci_dev,
 		struct ohci_controller *ohci,
 		bool posted_writes,
-		unsigned speed)
+		enum link_speed speed)
 {
   ohci->pci = pci_dev;
   ohci->ohci_regs = (volatile uint32_t *) pci_cfg_read_uint32(ohci->pci, PCI_CFG_BAR0);
