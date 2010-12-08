@@ -61,10 +61,15 @@ ohci_generate_crom(struct ohci_controller *ohci, enum link_speed speed)
 
   /* We dont want to be bus master. */
   crom->field[2] = OHCI_REG(ohci, BusOptions) & 0x0FFFFFFF;
-  if (speed < (crom->field[2] & 0xf)) {
-    crom->field[2] =  (crom->field[2] & ~0xf) | speed;
+  if (speed != SPEED_MAX) {
+    if (speed > (crom->field[2] & 0xf)) {
+      OHCI_INFO("Tried to set invalid speed. Ignored.\n");
+    } else {
+      crom->field[2] =  (crom->field[2] & ~0xf) | speed;
+    }
   }
-  printf("BusOptions: %x speed S%d\n", OHCI_REG(ohci, BusOptions), 100 << (crom->field[2] & 0xf));
+  OHCI_INFO("BusOptions set to %x.\n", crom->field[2]);
+
   crom->field[3] = OHCI_REG(ohci, GUIDHi);
   crom->field[4] = OHCI_REG(ohci, GUIDLo);
 
