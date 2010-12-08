@@ -86,6 +86,7 @@ struct node_info {
   bool irm;
   bool me;
   uint64_t guid;
+  unsigned speed;
 
   uint32_t multiboot_ptr;	/* Pointer to pointer */
 
@@ -157,6 +158,9 @@ collect_node_info(unsigned target_no)
 
   /* Store GUID */
   info->guid = (uint64_t)crom_buf[3] << 32 | crom_buf[4];
+
+  /* Speed */
+  info->speed = 100 * (1U << (crom_buf[2] & 0xF));
   
   /* Config ROM obtained. Check for Morbo. */
   /* XXX Check CRCs and bounds */
@@ -262,10 +266,11 @@ do_overview_screen(struct node_info *info)
     SLsmg_gotorc(pos, 0);
     SLsmg_set_color(info->me ? COLOR_MYSELF : ((info->status == BROKEN) ? COLOR_BROKEN : COLOR_NORMAL));
 
-    SLsmg_printf("%3u %c%c | %016llx %4s %4s | %s",
+    SLsmg_printf("%3u %c%c S%3u | %016llx %4s %4s | %s",
 		 info->node_no,
 		 info->busmaster ? 'B' : ' ',
 		 info->irm ?  'I' : ' ',
+                 info->speed,
 		 (info->status == RUN) ? info->guid : 0LLU,
 		 status_names[info->status],
 		 (info->bootable ? "BOOT" : ""),
