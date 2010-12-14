@@ -60,17 +60,6 @@ parse_cmdline(const char *cmdline)
       speed = SPEED_S200;
     } else if (strcmp(token, "s400") == 0) {
       speed = SPEED_S400;
-    } else if (strncmp(token, "mempatch=", sizeof("mempatch=")-1) == 0) {
-      char *args_ptr = NULL;
-      char *width = strtok_r(token + sizeof("mempatch=")-1, ",", &args_ptr);
-      uintptr_t addr  = (uintptr_t)strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
-      uint32_t value = strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
-
-      switch (width[0]) {
-      case 'b': *((uint8_t  *)addr) = (uint8_t)value; break;
-      case 'w': *((uint16_t *)addr) = (uint16_t)value; break;
-      case 'd': *((uint32_t *)addr) = (uint32_t)value; break;
-      }
     } else {
       /* printf not possible yet. */
       //printf("Ignoring unrecognized argument: %s.\n", token);
