@@ -31,7 +31,7 @@ enum {
 };
 
 static uint16_t serial_base;
-static bool     output_enabled;
+static bool     output_enabled = false;
 
 void
 serial_send (int c)
