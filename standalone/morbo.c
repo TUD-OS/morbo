@@ -85,9 +85,6 @@ main(uint32_t magic, struct mbi *mbi)
   printf("\nMorbo %s\n", version_str);
   printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
-  /* Use this to check memory corruption. */
-  // hexdump((const void *)0, 0x20);
-
   /* Check for APIC support */
   if (force_enable_apic && !has_apic()) {
 
