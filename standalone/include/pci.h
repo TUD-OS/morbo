@@ -15,10 +15,12 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <pci_db.h>
 
 enum pci_class {
   PCI_CLASS_BRIDGE_DEV      = 0x06,
+  PCI_CLASS_SIMPLE_COMM     = 0x07,
   PCI_CLASS_SERIAL_BUS_CTRL = 0x0C,
 };
 
@@ -29,6 +31,7 @@ enum pci_subclass {
   PCI_SUBCLASS_PCI_BRIDGE   = 0x04,
   PCI_SUBCLASS_PCMCIA_BRIDGE  = 0x05,
   PCI_SUBCLASS_CARDBUS_BRIDGE = 0x07,
+  PCI_SUBCLASS_SERIAL_CTRL  = 0x00,
 };
 
 enum pci_config_space {
@@ -48,6 +51,9 @@ enum pci_constants {
   PCI_CAP_OFFSET = 1,
   PCI_CAP_ID_EXP   = 0x10,
   PCI_EXP_TYPE_PCI_BRIDGE=0x7,
+  PCI_BAR_TYPE_MASK = 1U,
+  PCI_BAR_TYPE_IO   = 1U,
+  PCI_BAR_IO_MASK   = ~1U,
 };
 
 struct pci_device {

@@ -61,9 +61,22 @@ vilo = fenv.Program('vilo.debug',
 Depends(vilo, 'morbo.ld')
 vilo = Command('vilo', vilo, 'strip -o $TARGET $SOURCE')
 
+# Bender
+
+bender = fenv.Program('bender.debug',
+                      [ 'bender.c',
+                        ],
+                      LIBS=['stand'])
+Depends(bender, 'morbo.ld')
+bender = Command('bender', bender, 'strip -o $TARGET $SOURCE')
+
 # Installation
 
-Install('#tftp', [ morbo, zapp, vilo ])
+Install('#tftp', [ morbo,
+                   zapp,
+                   vilo,
+                   bender,
+                   ])
 
 # Incomplete version of Option ROM
 
