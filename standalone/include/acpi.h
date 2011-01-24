@@ -42,6 +42,7 @@ struct device_scope {
 } __attribute__((packed));
 
 enum {
+  TYPE_DMAR          = 0,
   TYPE_RMRR          = 1,
   SCOPE_PCI_ENDPOINT = 1,
 };
@@ -49,8 +50,12 @@ enum {
 struct dmar_entry {
   uint16_t type;
   uint16_t size;
-  
+
   union {
+    struct {
+      uint32_t _res;
+      uint64_t phys;
+    } dmar;
     /* If we include more than RMRRs here, we need to fix the DMAR
        duplication code in zapp.c */
     struct rmrr {

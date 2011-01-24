@@ -26,6 +26,12 @@ struct add {
 } additions[MAX_FIXUPS];
 unsigned additions_count = 0;
 
+
+struct disable_dmar {
+  uint64_t phys;
+}  disabledmar[MAX_FIXUPS];
+unsigned disabledmar_count = 0;
+
 void
 parse_cmdline(const char *cmdline)
 {
@@ -57,6 +63,10 @@ parse_cmdline(const char *cmdline)
       a->class = strtoull(strtok_r(token + sizeof("addrmrr=")-1, ",", &args_ptr), NULL, 0);
       a->base = strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
       a->size = strtoull(strtok_r(NULL, ",", &args_ptr), NULL, 0);
+    } else if (strncmp(token, "disabledmar=", sizeof("disabledmar=")-1) == 0) {
+      assert(additions_count < MAX_FIXUPS, "Too many DMARs to disable.\n");
+      struct disable_dmar *d =  disabledmar + disabledmar_count++;
+      d->phys = strtoull(strtok_r(token + sizeof("disabledmar=")-1, ",", &args_ptr), NULL, 0);
     } else {
       printf("Ignoring unrecognized argument: %s.\n", token);
     }
@@ -120,6 +130,18 @@ main(uint32_t magic, struct mbi *mbi)
        acpi_in_table(&dmar->generic, e);
        e = acpi_dmar_next(e)) {
     switch (e->type) {
+    case TYPE_DMAR:
+      printf("DMAR %08llx", e->dmar.phys);
+      for (unsigned i = 0; i < disabledmar_count; i++) {
+	if (e->dmar.phys == disabledmar[i].phys) {
+	  // we disable the DMAR entry here by putting an invalid type, better would be to remove the entry at all
+	  e->type = 0xffff;
+	  printf(" disabled", e->dmar.phys);
+	  break;
+	}
+      }
+      printf("\n");
+      break;
     case TYPE_RMRR:
       printf("RMRR %08llx-%08llx %x:%x.%x (type %x)",
 	     e->rmrr.base,
