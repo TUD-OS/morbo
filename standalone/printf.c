@@ -42,6 +42,10 @@ vprintf(const char *fmt, va_list ap)
     
     switch (state) {
     case PLAIN:
+
+      longness = 0;
+      fill     = 0;
+
       switch (c) {
       case '%':
         state = INFMT;
@@ -97,10 +101,6 @@ vprintf(const char *fmt, va_list ap)
 	goto dumpbuf;
       }
 
-      if (state == PLAIN) {
-        longness = 0;
-        fill     = 0;
-      }
       break;                    /* case INFMT */
     }
   }
