@@ -14,6 +14,7 @@
 
 #include <elf.h>
 #include <util.h>
+#include <mbi-tools.h>
 
 enum {
   EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
@@ -62,6 +63,10 @@ start_module(struct mbi *mbi)
   if (mbi->mods_count == 0) {
     printf("No module to start.\n");
     return -1;
+  }
+
+  if (mbi->mods_count > 1) {
+    mbi_relocate_modules(mbi);
   }
 
   // skip module after loading
