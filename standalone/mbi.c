@@ -94,7 +94,7 @@ mbi_relocate_modules(struct mbi *mbi)
   for (unsigned i = 0; i < mbi->mods_count; i++) {
 
     minfo[i].modlen = mods[i].mod_end - mods[i].mod_start;
-    minfo[i].slen   = strlen((const char *)mods[i].string + 1);
+    minfo[i].slen   = strlen((const char *)mods[i].string) + 1;
     size += minfo[i].modlen;
     size += minfo[i].slen;
 
