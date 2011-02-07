@@ -70,12 +70,22 @@ bender = fenv.Program('bender.debug',
 Depends(bender, 'morbo.ld')
 bender = Command('bender', bender, 'strip -o $TARGET $SOURCE')
 
+# Farnsworth
+
+farnsworth = fenv.Program('farnsworth.debug',
+                          [ 'farnsworth.c',
+                            ],
+                          LIBS=['stand'])
+Depends(farnsworth, 'morbo.ld')
+farnsworth = Command('farnsworth', farnsworth, 'strip -o $TARGET $SOURCE')
+
 # Installation
 
 Install('#tftp', [ morbo,
                    zapp,
                    vilo,
                    bender,
+                   farnsworth,
                    ])
 
 # Incomplete version of Option ROM
