@@ -52,7 +52,7 @@ __exit(unsigned status)
   const unsigned delay = 300;
 
   printf("\nExit with status %u.\n"
-         "Rebooting...\n");
+         "Rebooting...\n", status);
 
   for (unsigned i=0; i<delay;i++) {
     wait(1000);
