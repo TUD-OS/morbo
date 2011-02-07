@@ -40,6 +40,8 @@ main(uint32_t magic, struct mbi *mbi)
   if (iobase != 0) {
     printf("Patching BDA with I/O port 0x%x.\n", iobase);
     *(uint16_t *)(0x400) = iobase;
+    serial_init();
+    printf("Hello World.\n");
   } else {
     printf("I/O ports for controller not found.\n");
   }
