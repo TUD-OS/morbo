@@ -6,12 +6,21 @@ def CheckCommand(context, cmd):
        context.Result(result is not None)
        return result
 
+# Builders
+
+strip_bld = Builder(action = 'strip -o $TARGET $SOURCE',
+                    src_suffix = '.debug',
+                    suffix = '')
+gzip_bld  = Builder(action = 'gzip --best -c < $SOURCE > $TARGET',
+                    suffix = '.gz')
 
 # Construct freestanding environment
-freestanding_env = Environment()
 
-freestanding_env['CFLAGS']  = "-Os -m32 -march=pentium3 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
-freestanding_env['CFLAGS'] += " -fomit-frame-pointer -minline-all-stringops -mregparm=3 "
+freestanding_env = Environment(BUILDERS = {'Strip' : strip_bld,
+                                           'GZip'  : gzip_bld})
+
+freestanding_env['CFLAGS']  = "-Os -m32 -march=pentium -mtune=core2 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
+freestanding_env['CFLAGS'] += " -ffunction-sections -fomit-frame-pointer -mregparm=3 "
 freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
 freestanding_env['LINK'] = "ld"
 freestanding_env['AS'] = "yasm"
@@ -59,11 +68,12 @@ if not conf.CheckPKGConfig('0.15.0'):
        print('pkg-config >= 0.15.0 not found.')
        Exit(1)
 
+build_fw_scan = True
+build_tools   = True;
+
 if not conf.CheckPKG('libraw1394'):
        print('Could not find libraw1394')
-       Exit(1)
-
-build_fw_scan = True
+       build_tools = False
 
 if not conf.CheckCHeader('slang.h'):
        print('Could not find slang headers.')
@@ -76,13 +86,18 @@ if not conf.CheckFunc('SLsmg_init_smg'):
 if not build_fw_scan:
        print('fw_scan will not be built.')
 
+if not build_tools:
+       printf('Host tools will not be built.')
+
 fw_env = conf.Finish()
 
 Export('freestanding_env')
 Export('fw_env')
 
-SConscript(["standalone/SConscript",
-            "tools/SConscript"])
+SConscript(["standalone/SConscript"])
+
+if build_tools:
+       SConscript(["tools/SConscript"])
 
 if build_fw_scan:
        SConscript(["fw_scan/SConscript"])

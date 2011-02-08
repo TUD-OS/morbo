@@ -8,3 +8,4 @@ tftp
 config.log
 *.a
 *.debug
+*.gz
