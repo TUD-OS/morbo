@@ -42,5 +42,5 @@ main(uint32_t magic, struct mbi *mbi)
   }
   printf("\n");
 
-  return start_module(mbi);
+  return start_module(mbi, false);
 }

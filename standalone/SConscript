@@ -22,6 +22,12 @@ stand = fenv.StaticLibrary('stand',
                              'util.c',
                              'version.c',
 
+                             # libc stuff
+                             'memcpy.c',
+                             'memcmp.c',
+                             'memset.c',
+                             'strlen.c',
+
                              # FreeBSD libc stuff
                              'strncmp.c',
                              'strncpy.c',
@@ -38,63 +44,58 @@ tinf = fenv.StaticLibrary('tinf',
                             'crc32.c',
                             ])
 
-AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
+AlwaysBuild(Command('version.inc', [], """git describe --dirty | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
+
+def DoInstall(prog, compress=True):
+    Depends(prog, 'morbo.ld')
+    prog = fenv.Strip(prog)
+    if compress:
+        prog = fenv.GZip(prog)
+    Install('#tftp', prog)
 
 # Morbo
 
-morbo = fenv.Program('morbo.debug',
-                     [ 'crc16.c',
-                       'morbo.c',
-                       'ohci.c' ],
-                     LIBS=['stand'])
-Depends(morbo, 'morbo.ld')
-morbo = Command('morbo', morbo, 'strip -o $TARGET $SOURCE')
-
+DoInstall(fenv.Program('morbo.debug',
+                       [ 'crc16.c',
+                         'morbo.c',
+                         'ohci.c' ],
+                       LIBS=['stand', 'tinf']))
 
 # Zapp
 
-zapp = fenv.Program('zapp.debug',
-                    [ 'acpi.c',
-                      'zapp.c',
-                      ],
-                    LIBS=['stand'])
-Depends(zapp, 'morbo.ld')
-zapp = Command('zapp', zapp, 'strip -o $TARGET $SOURCE')
+DoInstall(fenv.Program('zapp.debug',
+                       [ 'acpi.c',
+                         'zapp.c',
+                         ],
+                       LIBS=['stand', 'tinf']))
 
 # VILO
 
-vilo = fenv.Program('vilo.debug',
-                    [ 'vilo.c' ],
-                    LIBS=['stand'])
-Depends(vilo, 'morbo.ld')
-vilo = Command('vilo', vilo, 'strip -o $TARGET $SOURCE')
+DoInstall(fenv.Program('vilo.debug',
+                       [ 'vilo.c' ],
+                       LIBS=['stand', 'tinf']))
 
 # Bender
 
-bender = fenv.Program('bender.debug',
-                      [ 'bender.c',
-                        ],
-                      LIBS=['stand'])
-Depends(bender, 'morbo.ld')
-bender = Command('bender', bender, 'strip -o $TARGET $SOURCE')
+DoInstall(fenv.Program('bender.debug',
+                       [ 'bender.c',
+                         ],
+                       LIBS=['stand', 'tinf']))
+
+# Unzip
+
+DoInstall(fenv.Program('unzip.debug',
+                       [ 'unzip.c',
+                         ],
+                       LIBS=['stand', 'tinf']),
+          compress=False)
 
 # Farnsworth
 
-farnsworth = fenv.Program('farnsworth.debug',
-                          [ 'farnsworth.c',
-                            ],
-                          LIBS=['stand'])
-Depends(farnsworth, 'morbo.ld')
-farnsworth = Command('farnsworth', farnsworth, 'strip -o $TARGET $SOURCE')
-
-# Installation
-
-Install('#tftp', [ morbo,
-                   zapp,
-                   vilo,
-                   bender,
-                   farnsworth,
-                   ])
+DoInstall(fenv.Program('farnsworth.debug',
+                       [ 'farnsworth.c',
+                         ],
+                       LIBS=['stand', 'tinf']))
 
 # Incomplete version of Option ROM
 

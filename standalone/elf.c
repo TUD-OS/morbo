@@ -58,15 +58,15 @@ gen_elf_segment(uint8_t **code, void *target, void *src, size_t len,
 }
 
 int
-start_module(struct mbi *mbi)
+start_module(struct mbi *mbi, bool uncompress)
 {
   if (mbi->mods_count == 0) {
     printf("No module to start.\n");
     return -1;
   }
 
-  if (mbi->mods_count > 1) {
-    mbi_relocate_modules(mbi);
+  if (uncompress || (mbi->mods_count > 1)) {
+    mbi_relocate_modules(mbi, uncompress);
   }
 
   // skip module after loading

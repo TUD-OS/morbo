@@ -31,6 +31,12 @@
  *    any source distribution.
  */
 
+/* 
+ * Modified by Julian Stecklina <jsteckli@os.inf.tu-dresden.de> to
+ *  allow user to query the size of uncompressed data before actual
+ *  unpacking.
+ */
+
 #include "tinf.h"
 
 #define FTEXT    1
@@ -39,6 +45,7 @@
 #define FNAME    8
 #define FCOMMENT 16
 
+/* If dest is NULL, return uncompressed length in *destLen. */
 int tinf_gzip_uncompress(void *dest, unsigned int *destLen,
                          const void *source, unsigned int sourceLen)
 {
@@ -100,6 +107,11 @@ int tinf_gzip_uncompress(void *dest, unsigned int *destLen,
     dlen = 256*dlen + src[sourceLen - 2];
     dlen = 256*dlen + src[sourceLen - 3];
     dlen = 256*dlen + src[sourceLen - 4];
+
+    if (!dst) {
+      *destLen = dlen;
+      return TINF_OK;
+    }
 
     /* -- get crc32 of decompressed data -- */
 

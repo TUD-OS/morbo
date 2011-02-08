@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <mbi.h>
 
 
@@ -46,6 +47,6 @@ struct ph {
   unsigned int p_align;
 };
 
-int start_module(struct mbi *mbi);
+int start_module(struct mbi *mbi, bool uncompress);
 
 /* EOF */

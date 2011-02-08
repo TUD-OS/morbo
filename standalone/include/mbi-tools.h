@@ -12,7 +12,7 @@ bool mbi_find_memory(const struct mbi *multiboot_info, size_t len,
 
 void *mbi_alloc_protected_memory(struct mbi *multiboot_info, size_t len, unsigned align);
 
-void mbi_relocate_modules(struct mbi *mbi);
+void mbi_relocate_modules(struct mbi *mbi, bool uncompress);
 
 
 /* EOF */

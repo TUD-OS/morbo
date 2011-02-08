@@ -246,7 +246,7 @@ main(uint32_t magic, struct mbi *mbi)
   }
  next:
   printf("Starting next module.\n");
-  return start_module(mbi);
+  return start_module(mbi, false);
 }
 
 /* EOF */

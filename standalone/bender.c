@@ -5,6 +5,7 @@
 #include <util.h>
 #include <elf.h>
 #include <version.h>
+#include <serial.h>
 
 int
 main(uint32_t magic, struct mbi *mbi)
@@ -47,5 +48,5 @@ main(uint32_t magic, struct mbi *mbi)
   }
 
  boot_next:
-  return start_module(mbi);
+  return start_module(mbi, false);
 }
