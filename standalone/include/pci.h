@@ -32,6 +32,7 @@ enum pci_subclass {
   PCI_SUBCLASS_PCMCIA_BRIDGE  = 0x05,
   PCI_SUBCLASS_CARDBUS_BRIDGE = 0x07,
   PCI_SUBCLASS_SERIAL_CTRL  = 0x00,
+  PCI_SUBCLASS_SERIAL_OTHER = 0x80,
 };
 
 enum pci_config_space {
