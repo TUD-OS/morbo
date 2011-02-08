@@ -35,7 +35,7 @@ main(int argc, char **argv)
   /* Command line parsing */
   int opt;
   unsigned port = 0;
-  unsigned step = 512;
+  unsigned step = 128;
 
   enum { INVALID, PEEK, POKE } mode = INVALID;
 
@@ -119,8 +119,10 @@ main(int argc, char **argv)
   case PEEK:
     for (uint64_t cur = address; cur < address+length; cur += step) {
       size_t size = (cur + step > address+length) ? (address+length - cur) : step;
+      int tries = 5;
+again:
       int res = raw1394_read(fw_handle, target, cur, size, buf);
-      if (res != 0) { perror("read data"); return EXIT_FAILURE; }
+      if (res != 0) { if (tries-- > 0) goto again; perror("read data"); return EXIT_FAILURE; }
       if (write(STDOUT_FILENO, buf, size) < 0) {
 	perror("write");
 	return EXIT_FAILURE;
