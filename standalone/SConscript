@@ -30,6 +30,14 @@ stand = fenv.StaticLibrary('stand',
                              'qdivrem.c',
                              ])
 
+tinf = fenv.StaticLibrary('tinf',
+                          [ 'tinflate.c',
+                            'tinfgzip.c',
+                            'tinfzlib.c',
+                            'adler32.c',
+                            'crc32.c',
+                            ])
+
 AlwaysBuild(Command('version.inc', [], """git describe | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
 
 # Morbo
