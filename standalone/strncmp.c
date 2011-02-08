@@ -35,6 +35,12 @@ static char sccsid[] = "@(#)strncmp.c	8.1 (Berkeley) 6/4/93";
 #include <util.h>
 
 int
+strcmp(const char *s1, const char *s2)
+{
+  return strncmp(s1, s2, ~0UL);
+}
+
+int
 strncmp(const char *s1, const char *s2, size_t n)
 {
 
