@@ -35,7 +35,7 @@ main(uint32_t magic, struct mbi *mbi)
     uint64_t base = (uint64_t)mmap->base_addr_low | ((uint64_t)mmap->base_addr_high<<32);
     uint64_t len  = (uint64_t)mmap->length_low | ((uint64_t)mmap->length_high<<32);
 
-    printf(" type %2x start %8llx end %8llx len %8llx\n", mmap->type, base, base+len-1, len);
+    printf(" type %2x start %16llx end %16llx len %16llx\n", mmap->type, base, base+len-1, len);
 
     /* Skip to next entry. */
     mmap = (memory_map_t *)(mmap->size + (uint32_t)mmap + sizeof(mmap->size));
