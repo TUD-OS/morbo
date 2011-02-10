@@ -6,7 +6,7 @@
 #include <tinf.h>
 
 
-/** Find a sufficiently large block of free memory.
+/** Find a sufficiently large block of free memory that is page aligned.
  */
 bool
 mbi_find_memory(const struct mbi *multiboot_info, size_t len,
@@ -20,6 +20,14 @@ mbi_find_memory(const struct mbi *multiboot_info, size_t len,
   while ((uint32_t)mmap < multiboot_info->mmap_addr + mmap_len) {
     uint64_t block_len  = (uint64_t)mmap->length_high<<32 | mmap->length_low;
     uint64_t block_addr = (uint64_t)mmap->base_addr_high<<32 | mmap->base_addr_low;
+
+    /* Memory blocks may not be page aligned. Round length and address
+       to page granularity. */
+    uint64_t nblock_addr = (block_addr + 0xFFF) & ~0xFFF;
+    if (nblock_addr > (block_addr + block_len)) continue;
+    block_len -= (nblock_addr - block_addr);
+    block_len  = block_len & ~0xFFF;
+    block_addr = nblock_addr;
 
     if ((mmap->type == MMAP_AVAILABLE) && ((block_addr >> 32) == 0ULL) &&
         (block_len >= len)) {
