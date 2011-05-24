@@ -60,7 +60,7 @@ gen_elf_segment(uint8_t **code, void *target, void *src, size_t len,
 int
 start_module(struct mbi *mbi, bool uncompress)
 {
-  if (mbi->mods_count == 0) {
+  if ((mbi->flags & MBI_FLAG_MODS == 0) || (mbi->mods_count == 0)) {
     printf("No module to start.\n");
     return -1;
   }
