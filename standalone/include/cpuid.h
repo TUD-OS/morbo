@@ -21,9 +21,10 @@ enum IA32_APIC_MSR {
 static inline bool
 has_apic(void)
 {
+  uint32_t eax = 1;
   uint32_t edx;
 
-  asm ("cpuid" : "=d" (edx) : "a" (1) : "ebx", "ecx");
+  asm ("cpuid" : "+a" (eax), "=d" (edx) :: "ebx", "ecx");
 
   return ((edx >> 9) & 1) != 0;
 }
