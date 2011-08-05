@@ -13,6 +13,7 @@ SECTIONS
 
   /* 1 MB */
   . = 0x100000;
+  _image_start = .;
 
   .text :
   {
@@ -31,6 +32,7 @@ SECTIONS
     *(COMMON);
     *(.bss  .bss.*);
     . = ALIGN(0x80000);
+    _image_end = .;
   }
 
   /DISCARD/ :
