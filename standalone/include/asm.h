@@ -97,9 +97,56 @@ bsf(uint32_t value)
 }
 
 static inline void
+invlpg(void *p)
+{
+  asm volatile("invlpg %0" :: "m" (*(char *)p));
+}
+
+static inline void
+wbinvd()
+{
+  asm volatile("wbinvd");
+}
+
+static inline void
 cli_halt(void)
 {
   asm volatile("cli ; hlt");
 }
+
+static inline void
+memory_barrier(void)
+{
+  asm volatile ("" ::: "memory");
+}
+
+#define REGISTER_SETTER(reg)                                    \
+  static inline void set_ ## reg (uint32_t v)                   \
+  {                                                             \
+    asm volatile ("mov %0, %%" #reg :: "r" (v));                \
+  }
+
+#define REGISTER_GETTER(reg)                                       \
+    static inline uint32_t get_ ## reg ()                          \
+    {                                                              \
+      uint32_t v;                                                  \
+      asm volatile ("mov %%" #reg ", %0" : "=r" (v));              \
+      return v;                                                    \
+    }
+
+REGISTER_GETTER(cr0)
+REGISTER_GETTER(cr3)
+REGISTER_GETTER(cr4)
+
+REGISTER_SETTER(cr0)
+REGISTER_SETTER(cr3)
+REGISTER_SETTER(cr4)
+
+REGISTER_SETTER(cs)
+REGISTER_SETTER(ds)
+REGISTER_SETTER(es)
+REGISTER_SETTER(fs)
+REGISTER_SETTER(gs)
+REGISTER_SETTER(ss)
 
 /* EOF */
