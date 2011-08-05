@@ -37,9 +37,12 @@ static char sccsid[] = "@(#)strncpy.c	8.1 (Berkeley) 6/4/93";
 #include <util.h>
 
 char *
-strcpy(char * __restrict dst, const char * __restrict src)
+strcpy(char * __restrict to, const char * __restrict from)
 {
-  return strncpy(dst, src, ~0UL);
+	char *save = to;
+
+	for (; (*to = *from); ++from, ++to);
+	return(save);
 }
 
 /*
