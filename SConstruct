@@ -19,7 +19,7 @@ gzip_bld  = Builder(action = 'gzip --best -c < $SOURCE > $TARGET',
 freestanding_env = Environment(BUILDERS = {'Strip' : strip_bld,
                                            'GZip'  : gzip_bld})
 
-freestanding_env['CFLAGS']  = "-Os -m32 -march=pentium -mtune=core2 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
+freestanding_env['CFLAGS']  = "-Os -minline-all-stringops -m32 -march=pentium -mtune=core2 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
 freestanding_env['CFLAGS'] += " -ffunction-sections -fomit-frame-pointer -mregparm=3 "
 freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
 freestanding_env['LINK'] = "ld"
