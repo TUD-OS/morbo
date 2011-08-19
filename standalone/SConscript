@@ -97,6 +97,12 @@ DoInstall(fenv.Program('farnsworth.debug',
                          ],
                        LIBS=['stand', 'tinf']))
 
+# IRQ shadow
+
+DoInstall(fenv.Program('irqshadow.debug',
+                       [ 'irqshadow.asm' ],
+                       LIBS=['stand']))
+
 # Incomplete version of Option ROM
 
 rom_env = freestanding_env.Clone()
