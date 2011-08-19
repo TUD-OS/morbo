@@ -46,11 +46,9 @@ tinf = fenv.StaticLibrary('tinf',
 
 AlwaysBuild(Command('version.inc', [], """git describe --dirty | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
 
-def DoInstall(prog, compress=True):
+def DoInstall(prog):
     Depends(prog, 'morbo.ld')
     prog = fenv.Strip(prog)
-    if compress:
-        prog = fenv.GZip(prog)
     Install('#tftp', prog)
 
 # Morbo
@@ -87,8 +85,7 @@ DoInstall(fenv.Program('bender.debug',
 DoInstall(fenv.Program('unzip.debug',
                        [ 'unzip.c',
                          ],
-                       LIBS=['stand', 'tinf']),
-          compress=False)
+                       LIBS=['stand', 'tinf']))
 
 # Farnsworth
 
