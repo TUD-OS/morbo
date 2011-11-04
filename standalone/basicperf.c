@@ -69,13 +69,15 @@ main(uint32_t magic, struct mbi *mbi)
   printf("\nbasicperf %s\n", version_str);
   printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
-  for (unsigned i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
-    printf("Test %s:", tests[i].name);
+  static const  unsigned tries = 1024;
+  static uint32_t results[1024];
+  memset(results, 0, sizeof(results)); /* Warmup */
 
-    static const  unsigned tries = 1024;
-    static uint32_t results[1024];
+  for (unsigned i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    unsigned retries = 0;
     uint64_t start, end;
-    
+
+  again:
     for (unsigned j = 0; j < tries; j++) {
         start = rdtsc();
         tests[i].test_fn();
@@ -91,7 +93,12 @@ main(uint32_t magic, struct mbi *mbi)
     for (unsigned j = 0; j < tries; j++) sqdiff += (mean - results[j])*(mean - results[j]);
     float stddev = sqrtf(sqdiff/tries);
 
-    printf(" mean %u stddev %u\n", (uint32_t)mean, (uint32_t)stddev);
+    if ((retries++ < 5) && (stddev > 2000)) {
+      printf("Retry test %s because of instability: stddev %u\n", tests[i].name, (uint32_t)stddev);
+      goto again;
+    }
+    
+    printf("Test %s: retries %u mean %u stddev %u\n", tests[i].name, retries, (uint32_t)mean, (uint32_t)stddev);
   }
 
   return 0;
