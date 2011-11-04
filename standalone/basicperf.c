@@ -69,6 +69,8 @@ main(uint32_t magic, struct mbi *mbi)
   printf("\nbasicperf %s\n", version_str);
   printf("Blame Julian Stecklina <jsteckli@os.inf.tu-dresden.de> for bugs.\n\n");
 
+  printf("Testing \"Basic VM performance\" in %s:\n", __FILE__);
+
   static const  unsigned tries = 1024;
   static uint32_t results[1024];
   memset(results, 0, sizeof(results)); /* Warmup */
@@ -99,7 +101,9 @@ main(uint32_t magic, struct mbi *mbi)
     }
     
     printf("Test %s: retries %u mean %u stddev %u\n", tests[i].name, retries, (uint32_t)mean, (uint32_t)stddev);
+    printf("! PERF: %s %u cycles (retries %u, stddev %u) ok\n", tests[i].name, (uint32_t)mean, retries, (uint32_t)stddev);
   }
+  printf("wvtest: done\n");
 
   return 0;
 }
