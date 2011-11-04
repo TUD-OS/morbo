@@ -37,6 +37,12 @@ t_mmio(void)
   ((volatile uint32_t *)0xFEE00000)[1]; /* APIC reg 1 */
 }
 
+static void
+t_fmmio(void)
+{
+  asm volatile ("fild %0" : "+m" (((volatile float *)0xFEE00000)[1]));
+}
+
 struct test {
   const char *name;
   void (*test_fn)(void);
@@ -48,6 +54,8 @@ static const struct test tests[] = {
   { "cpuid ", t_cpuid },
   { "portio", t_portio },
   { "mmio  ", t_mmio },
+  /* Doesn't work. :) */
+  //{ "fmmio ", t_fmmio },
 };
 
 static float sqrtf(float v)
