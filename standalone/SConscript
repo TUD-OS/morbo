@@ -100,6 +100,12 @@ DoInstall(fenv.Program('irqshadow.debug',
                        [ 'irqshadow.asm' ],
                        LIBS=['stand']))
 
+# Performance tests
+
+DoInstall(fenv.Program('basicperf.debug',
+                       [ 'basicperf.c' ],
+                       LIBS=['stand']))
+
 # Incomplete version of Option ROM
 
 rom_env = freestanding_env.Clone()
