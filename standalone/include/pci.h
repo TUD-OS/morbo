@@ -33,6 +33,8 @@ enum pci_subclass {
   PCI_SUBCLASS_CARDBUS_BRIDGE = 0x07,
   PCI_SUBCLASS_SERIAL_CTRL  = 0x00,
   PCI_SUBCLASS_SERIAL_OTHER = 0x80,
+
+  PCI_SUBCLASS_ANY          = 0xFF,
 };
 
 enum pci_config_space {
@@ -71,7 +73,8 @@ uint32_t pci_cfg_read_uint32(const struct pci_device *dev, uint32_t offset);
 
 /* Find a device by its class. Always finds the last device of the
    given class. On success, returns true and fills out the given
-   pci_device structure. Otherwise, returns false. */
+   pci_device structure. If subclass is 0xFF, it will be
+   ignored. Otherwise, returns false. */
 bool pci_find_device_by_class(uint8_t class, uint8_t subclass,
 			      struct pci_device *dev);
 

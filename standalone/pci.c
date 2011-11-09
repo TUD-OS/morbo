@@ -40,7 +40,7 @@ pci_read_uint32(unsigned addr)
 /**
  * Write a long to the pci config space.
  */
-static void
+void
 pci_write_uint32(unsigned addr, uint32_t value)
 {
   outl(PCI_ADDR_PORT, addr);
@@ -67,6 +67,7 @@ pci_find_device_by_class(uint8_t class, uint8_t subclass,
 {
   uint32_t res = 0;
   uint16_t full_class = class << 8 | subclass;
+  uint16_t class_mask = (subclass == PCI_SUBCLASS_ANY) ? 0xFF00 : 0xFFFF;
 
   assert(dev != NULL, "Invalid dev pointer");
 
@@ -78,7 +79,8 @@ pci_find_device_by_class(uint8_t class, uint8_t subclass,
 
       if (!maxfunc && pci_read_uint8(addr+14) & 0x80)
 	maxfunc=7;
-      if (full_class == (pci_read_uint32(addr+0x8) >> 16))
+
+      if ((full_class & class_mask) == ((pci_read_uint32(addr+0x8) >> 16) & class_mask))
 	res = addr;
     }
   }

@@ -7,10 +7,40 @@
 #include <version.h>
 #include <serial.h>
 
+/* Configuration (set by command line parser) */
+static bool be_promisc = false;
+
+void
+parse_cmdline(const char *cmdline)
+{
+  char *last_ptr = NULL;
+  char cmdline_buf[256];
+  char *token;
+  unsigned i;
+
+  strncpy(cmdline_buf, cmdline, sizeof(cmdline_buf));
+
+  for (token = strtok_r(cmdline_buf, " ", &last_ptr), i = 0;
+       token != NULL;
+       token = strtok_r(NULL, " ", &last_ptr), i++) {
+
+    /* Our name is not interesting. */
+    if (i == 0)
+      continue;
+
+    if (strcmp(token, "promisc") == 0) {
+      be_promisc = true;
+    }
+  }
+}
+
 int
 main(uint32_t magic, struct mbi *mbi)
 {
-  if (magic != MBI_MAGIC) {
+  if (magic == MBI_MAGIC) {
+    if ((mbi->flags & MBI_FLAG_CMDLINE) != 0)
+      parse_cmdline((const char *)mbi->cmdline);
+  } else {
     printf("Not loaded by Multiboot-compliant loader. Bye.\n");
     return 1;
   }
@@ -22,7 +52,10 @@ main(uint32_t magic, struct mbi *mbi)
 
   struct pci_device serial_ctrl;
 
-  if (pci_find_device_by_class(PCI_CLASS_SIMPLE_COMM, PCI_SUBCLASS_SERIAL_CTRL, &serial_ctrl)) {
+  printf("Promisc is %s.\n", be_promisc ? "on" : "off");
+  if (pci_find_device_by_class(PCI_CLASS_SIMPLE_COMM,
+			       be_promisc ? PCI_SUBCLASS_ANY : PCI_SUBCLASS_SERIAL_CTRL,
+			       &serial_ctrl)) {
     printf("  found at %x.\n", serial_ctrl.cfg_address);
   } else {
     printf("  none found.\n");
