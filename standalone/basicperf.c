@@ -79,6 +79,7 @@ main(uint32_t magic, struct mbi *mbi)
 
   printf("Testing \"Basic VM performance\" in %s:\n", __FILE__);
 
+  static const unsigned max_stddev = 1500;
   static const unsigned tries = 2048;
   static uint32_t results[2048];
   memset(results, 0, sizeof(results)); /* Warmup */
@@ -105,7 +106,7 @@ main(uint32_t magic, struct mbi *mbi)
     for (unsigned j = 0; j < tries; j++) sqdiff += (mean - results[j])*(mean - results[j]);
     float stddev = sqrtf(sqdiff/tries);
 
-    if ((retries++ < 5) && (stddev > 2000)) {
+    if ((retries++ < 5) && (stddev > max_stddev)) {
       printf("Retry test %s because of instability: stddev %u\n", tests[i].name, (uint32_t)stddev);
       goto again;
     }
