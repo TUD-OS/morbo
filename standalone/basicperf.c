@@ -79,7 +79,7 @@ main(uint32_t magic, struct mbi *mbi)
 
   printf("Testing \"Basic VM performance\" in %s:\n", __FILE__);
 
-  static const unsigned max_stddev = 1500;
+  static const unsigned max_stddev = 1000;
   static const unsigned tries = 2048;
   static uint32_t results[2048];
   memset(results, 0, sizeof(results)); /* Warmup */
