@@ -106,6 +106,12 @@ DoInstall(fenv.Program('basicperf.debug',
                        [ 'basicperf.c' ],
                        LIBS=['stand']))
 
+# IOAPIC tests
+
+DoInstall(fenv.Program('ioapic.debug',
+                       [ 'ioapic.c' ],
+                       LIBS=['stand']))
+
 # Incomplete version of Option ROM
 
 rom_env = freestanding_env.Clone()
