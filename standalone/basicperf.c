@@ -38,6 +38,14 @@ t_mmio(void)
 }
 
 static void
+t_rdmsr(void)
+{
+  uint32_t eax, edx;
+  /* RDMSR to MTRR_CAP */
+  asm volatile ("rdmsr" : "=a"(eax), "=d"(edx) : "c"(0xfe)); 
+}
+
+static void
 t_fmmio(void)
 {
   asm volatile ("fild %0" : "+m" (((volatile float *)0xFEE00000)[1]));
@@ -54,6 +62,7 @@ static const struct test tests[] = {
   { "cpuid ", t_cpuid },
   { "portio", t_portio },
   { "mmio  ", t_mmio },
+  { "rdmsr ", t_rdmsr },
   /* Doesn't work. :) */
   //{ "fmmio ", t_fmmio },
 };
