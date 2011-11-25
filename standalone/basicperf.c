@@ -79,8 +79,8 @@ main(uint32_t magic, struct mbi *mbi)
 
   printf("Testing \"Basic VM performance\" in %s:\n", __FILE__);
 
-  static const  unsigned tries = 1024;
-  static uint32_t results[1024];
+  static const unsigned tries = 2048;
+  static uint32_t results[2048];
   memset(results, 0, sizeof(results)); /* Warmup */
 
   for (unsigned i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
@@ -88,12 +88,14 @@ main(uint32_t magic, struct mbi *mbi)
     uint64_t start, end;
 
   again:
-    for (unsigned j = 0; j < tries; j++) {
+    /* Do a warmup round and then the real measurement. */
+    for (unsigned w = 0; w < 2; w++)
+      for (unsigned j = 0; j < tries; j++) {
         start = rdtsc();
         tests[i].test_fn();
         end = rdtsc();
         results[j] = end - start;
-    }
+      }
 
     uint64_t sum = 0;
     for (unsigned j = 0; j < tries; j++) sum += results[j];
@@ -107,7 +109,7 @@ main(uint32_t magic, struct mbi *mbi)
       printf("Retry test %s because of instability: stddev %u\n", tests[i].name, (uint32_t)stddev);
       goto again;
     }
-    
+
     printf("Test %s: retries %u mean %u stddev %u\n", tests[i].name, retries, (uint32_t)mean, (uint32_t)stddev);
     printf("! PERF: %s %u cycles (retries %u, stddev %u) ok\n", tests[i].name, (uint32_t)mean, retries, (uint32_t)stddev);
   }
