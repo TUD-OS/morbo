@@ -95,11 +95,21 @@ main(uint32_t magic, struct mbi *mbi)
         start = rdtsc();
         tests[i].test_fn();
         end = rdtsc();
-        results[j] = end - start;
+
+        uint32_t dur = end - start;
+        results[j] = dur;
       }
 
     uint64_t sum = 0;
-    for (unsigned j = 0; j < tries; j++) sum += results[j];
+    uint32_t min = ~0UL;
+    uint32_t max =  0UL;
+
+    for (unsigned j = 0; j < tries; j++) {
+      sum += results[j];
+      min  = MIN(min, results[j]);
+      max  = MAX(max, results[j]);
+    }
+
     float mean = (float)sum / tries;
 
     float sqdiff = 0;
@@ -111,8 +121,8 @@ main(uint32_t magic, struct mbi *mbi)
       goto again;
     }
 
-    printf("Test %s: retries %u mean %u stddev %u\n", tests[i].name, retries, (uint32_t)mean, (uint32_t)stddev);
-    printf("! PERF: %s %u cycles (retries %u, stddev %u) ok\n", tests[i].name, (uint32_t)mean, retries, (uint32_t)stddev);
+    printf("! PERF: %s %u cycles (retries=%u stddev=%u min=%u max=%u) ok\n",
+           tests[i].name, (uint32_t)mean, retries, (uint32_t)stddev, min, max);
   }
   printf("wvtest: done\n");
 

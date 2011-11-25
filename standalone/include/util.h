@@ -30,6 +30,14 @@
   } while (0)
 
 
+#define MAX(a, b) ({ typeof (a) _a = (a); \
+      typeof (b) _b = (b);		  \
+      _a > _b ? _a : _b; })
+
+#define MIN(a, b) ({ typeof (a) _a = (a); \
+      typeof (b) _b = (b);		  \
+      _a > _b ? _b : _a; })
+
 char *strtok_r(char *s, const char *delim, char **save_ptr);
 char *strtok(char *s, const char *delim);
 unsigned long long strtoull(const char * __restrict nptr, char ** __restrict endptr, int base);
