@@ -31,7 +31,6 @@ vprintf(const char *fmt, va_list ap)
 {
   char buf[64];
   char *s;
-  unsigned u;
   unsigned long long ull;
   int c;
   enum { PLAIN, INFMT } state = PLAIN;
@@ -74,12 +73,14 @@ vprintf(const char *fmt, va_list ap)
 	break;
       case 'd':       /* A lie, always prints unsigned */
       case 'u':
-        /* XXX Support longness */
-        u = va_arg(ap, unsigned);
+        if (longness < 2)
+          ull = va_arg(ap, unsigned);
+        else
+          ull = va_arg(ap, unsigned long long);
 	s = buf;
 	do
-	  *s++ = '0' + u % 10U;
-	while (u /= 10U);
+	  *s++ = '0' + ull % 10U;
+	while (ull /= 10U);
       dumpbuf:;
         while ((s - buf) < fill--)
           out_char('0');
