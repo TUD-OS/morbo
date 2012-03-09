@@ -21,7 +21,7 @@ def read_pulsar_config(name, state):
 	if line.startswith("root"):
 	    state[0] = param
 	elif line.startswith("exec") or line.startswith("load"):
-	    state.append(os.path.join(state[0], param))
+	    state.append((param, os.path.join(state[0], param.split()[0])))
 	elif line.startswith("conf"):
 	    read_pulsar_config(param, state)
 	elif line.startswith("addr"):
@@ -40,6 +40,7 @@ def is_morbo(fw=firewire.RemoteFw()):
 	model  = ntohl(struct.unpack("I", fw.read(CROM_ADDR +  7*4, 4))[0]) & 0xFFFFFF
 	rmbi   = ntohl(struct.unpack("I", fw.read(CROM_ADDR + 18*4, 4))[0])
     except firewire.FirewireException, err:
+	print "Error " + str(err)
 	vendor = 0
 	model  = 0
 	rmbi   = 0
@@ -73,14 +74,14 @@ def boot(files, fw=firewire.RemoteFw()):
     print "push modules"
     mods = []
     for item in state[1:]:
-	if type(item) != type(""):
+	if type(item) == type(1) or type(item) == type(1L):
 	    loadaddr = item
 	else:
-	    name = item.split()[0]
+	    name = item[0]
 	    print "    mod[%02d] %s [%08x -"%(len(mods), string.ljust(name, 50), loadaddr),
-	    data = open(name).read()
+	    data = open(item[1]).read()
 	    fw.write(loadaddr, data)
-	    mods.append((loadaddr, loadaddr + len(data), item))
+	    mods.append((loadaddr, loadaddr + len(data), item[0]))
 	    loadaddr += len(data)
 	    print "%8x]"%loadaddr
 	    loadaddr += (0x1000 - (loadaddr & 0xfff)) & 0xfff
