@@ -43,7 +43,7 @@ gen_jmp_edx(uint8_t **code)
 }
 
 static void
-gen_elf_segment(uint8_t **code, void *target, void *src, size_t len,
+gen_elf_segment(uint8_t **code, uintptr_t target, void *src, size_t len,
                 size_t fill)
 {
   gen_mov(code, EDI, (uint32_t)target);
@@ -60,7 +60,7 @@ gen_elf_segment(uint8_t **code, void *target, void *src, size_t len,
 int
 start_module(struct mbi *mbi, bool uncompress)
 {
-  if ((mbi->flags & MBI_FLAG_MODS == 0) || (mbi->mods_count == 0)) {
+  if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
     printf("No module to start.\n");
     return -1;
   }
@@ -80,24 +80,39 @@ start_module(struct mbi *mbi, bool uncompress)
 
   // check elf header
   struct eh *elf = (struct eh *) m->mod_start;
-  assert(*((unsigned *) elf->e_ident) == 0x464c457f, "ELF header incorrect");
-  assert(elf->e_type==2 && elf->e_machine==3 && elf->e_version==1, "ELF type incorrect");
-  assert(sizeof(struct ph) <= elf->e_phentsize, "e_phentsize to small");
+  assert(memcmp(elf->e_ident, ELFMAG, SELFMAG) == 0, "ELF header incorrect");
 
   uint8_t *code = (uint8_t *)0x7C00;
 
-  for (unsigned i=0; i<elf->e_phnum; i++) {
-    struct ph *ph = (struct ph *)(m->mod_start + elf->e_phoff+ i*elf->e_phentsize);
-    if (ph->p_type != 1)
-      continue;
-    gen_elf_segment(&code, ph->p_paddr, (void *)(m->mod_start+ph->p_offset), ph->p_filesz,
-                    ph->p_memsz - ph->p_filesz);
+#define LOADER(EH, PH) {                                                \
+    struct EH *elfc = (struct EH *)elf;                                               \
+    assert(elfc->e_type==2 && ((elfc->e_machine == EM_386) || (elfc->e_machine == EM_X86_64)) && elfc->e_version==1, "ELF type incorrect"); \
+    assert(sizeof(struct PH) <= elfc->e_phentsize, "e_phentsize too small"); \
+                                                                        \
+    for (unsigned i = 0; i < elfc->e_phnum; i++) {                      \
+      struct PH *ph = (struct PH *)(uintptr_t)(m->mod_start + elfc->e_phoff+ i*elfc->e_phentsize); \
+      if (ph->p_type != 1)                                              \
+        continue;                                                       \
+      gen_elf_segment(&code, ph->p_paddr, (void *)(uintptr_t)(m->mod_start+ph->p_offset), ph->p_filesz, \
+                      ph->p_memsz - ph->p_filesz);                      \
+    }                                                                   \
+                                                                        \
+    gen_mov(&code, EAX, 0x2BADB002);                                    \
+    gen_mov(&code, EDX, elfc->e_entry);                                 \
   }
 
-  gen_mov(&code, EAX, 0x2BADB002);
-  gen_mov(&code, EDX, (uint32_t)elf->e_entry);
-  gen_jmp_edx(&code);
+  switch (elf->e_ident[EI_CLASS]) {
+  case ELFCLASS32:
+    LOADER(eh, ph);
+    break;
+  case ELFCLASS64:
+    LOADER(eh64, ph64);
+    break;
+  default:
+    assert(false, "Invalid ELF class");
+  }
 
+  gen_jmp_edx(&code);
   asm volatile  ("jmp *%%edx" :: "a" (0), "d" (0x7C00), "b" (mbi));
 
   /* NOT REACHED */
