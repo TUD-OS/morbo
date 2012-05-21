@@ -1,15 +1,20 @@
 /*
- * \brief   ASM inline helper routines.
- * \date    2006-03-28
- * \author  Bernhard Kauer <kauer@tudos.org>
- */
-/*
- * Copyright (C) 2006  Bernhard Kauer <kauer@tudos.org>
- * Technische Universitaet Dresden, Operating Systems Research Group
+ * BIOS Data Area definitions.
  *
- * This file is part of the OSLO package, which is distributed under
- * the  terms  of the  GNU General Public Licence 2.  Please see the
- * COPYING file for details.
+ * Copyright (C) 2006, Bernhard Kauer <kauer@tudos.org>
+ * Copyright (C) 2009-2012, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of Morbo.
+ *
+ * Morbo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Morbo is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
  */
 
 #pragma once
