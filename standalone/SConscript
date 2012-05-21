@@ -67,12 +67,6 @@ DoInstall(fenv.Program('zapp.debug',
                          ],
                        LIBS=['stand', 'tinf']))
 
-# VILO
-
-DoInstall(fenv.Program('vilo.debug',
-                       [ 'vilo.c' ],
-                       LIBS=['stand', 'tinf']))
-
 # Bender
 
 DoInstall(fenv.Program('bender.debug',
