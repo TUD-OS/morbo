@@ -110,19 +110,4 @@ DoInstall(fenv.Program('printtsc.debug',
                        [ 'printtsc.c' ],
                        LIBS=['stand']))
 
-# Incomplete version of Option ROM
-
-rom_env = freestanding_env.Clone()
-
-rom_env['CPPPATH'] = ["#include", "include/"]
-rom_env['CFLAGS'] += "-fomit-frame-pointer -Os"
-rom_env['LINKFLAGS'] += " -T standalone/option-rom.ld" 
-
-rom = rom_env.Program('option-rom.bin-unfixed',
-                      ['option-rom.asm',
-                       'or-main.c'])
-
-rom_fixed = fenv.Command('option-rom.bin', ['rom_fixup.py', rom],
-                         "${SOURCES[0]} ${SOURCES[1:]} $TARGET")
-
 # EOF
