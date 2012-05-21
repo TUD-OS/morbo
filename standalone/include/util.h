@@ -70,7 +70,6 @@ void hexdump(const void *p, unsigned len);
 void wait(int ms);
 void __exit(unsigned status) __attribute__((regparm(3), noreturn));
 void reboot(void) __attribute__((noreturn));
-void torealmode(uint32_t addr) __attribute__((regparm(3), noreturn));
 
 /* Boot info */
 extern struct mbi *multiboot_info;
