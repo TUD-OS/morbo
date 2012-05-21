@@ -1,9 +1,9 @@
 /version.inc
-/option-rom.bin-unfixed
-/option-rom.bin
 /morbo
 /zapp
-/vilo
 /bender
 /farnsworth
 /unzip
+/basicperf
+/irqshadow
+/printtsc
