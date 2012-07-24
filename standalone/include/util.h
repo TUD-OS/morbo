@@ -68,7 +68,7 @@ void hexdump(const void *p, unsigned len);
 
 /* Helper functions. */
 void wait(int ms);
-void __exit(unsigned status) __attribute__((regparm(3), noreturn));
+void __exit(unsigned status) __attribute__((regparm(1), noreturn));
 void reboot(void) __attribute__((noreturn));
 
 /* Boot info */
