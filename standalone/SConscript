@@ -81,7 +81,7 @@ def DoInstall(prog):
 
 # Morbo
 
-DoInstall(fenv.Program('morbo.debug',
+DoInstall(fenv.Program('morbo',
                        [ 'crc16.c',
                          'morbo.c',
                          'ohci.c' ],
@@ -89,7 +89,7 @@ DoInstall(fenv.Program('morbo.debug',
 
 # Zapp
 
-DoInstall(fenv.Program('zapp.debug',
+DoInstall(fenv.Program('zapp',
                        [ 'acpi.c',
                          'zapp.c',
                          ],
@@ -97,38 +97,38 @@ DoInstall(fenv.Program('zapp.debug',
 
 # Bender
 
-DoInstall(fenv.Program('bender.debug',
+DoInstall(fenv.Program('bender',
                        [ 'bender.c',
                          ],
                        LIBS=['stand', 'tinf']))
 
 # Unzip
 
-DoInstall(fenv.Program('unzip.debug',
+DoInstall(fenv.Program('unzip',
                        [ 'unzip.c',
                          ],
                        LIBS=['stand', 'tinf']))
 
 # Farnsworth
 
-DoInstall(fenv.Program('farnsworth.debug',
+DoInstall(fenv.Program('farnsworth',
                        [ 'farnsworth.c',
                          ],
                        LIBS=['stand', 'tinf']))
 
 # IRQ shadow
 
-DoInstall(fenv.Program('irqshadow.debug',
+DoInstall(fenv.Program('irqshadow',
                        [ 'irqshadow.asm' ],
                        LIBS=['stand']))
 
 # Performance tests
 
-DoInstall(fenv.Program('basicperf.debug',
+DoInstall(fenv.Program('basicperf',
                        [ 'basicperf.c' ],
                        LIBS=['stand']))
 
-DoInstall(fenv.Program('printtsc.debug',
+DoInstall(fenv.Program('printtsc',
                        [ 'printtsc.c' ],
                        LIBS=['stand']))
 
