@@ -34,7 +34,7 @@ freestanding_env = conf.Finish()
 
 fenv = freestanding_env.Clone()
 
-fenv['CPPPATH'] = ["#include", "include/"]
+fenv['CPPPATH'] = ["../include", "include/"]
 fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
 fenv['LIBPATH'] = ['.']
 
@@ -77,7 +77,7 @@ AlwaysBuild(Command('version.inc', [], """git describe --dirty | sed 's/^\\(.*\\
 
 def DoInstall(prog):
     Depends(prog, 'morbo.ld')
-    Install('#tftp', prog)
+    Install('../tftp', prog)
 
 # Morbo
 
