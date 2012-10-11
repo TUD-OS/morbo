@@ -1,6 +1,36 @@
 # -*- Mode: Python -*-
 
-Import('freestanding_env')
+freestanding_env = Environment()
+
+freestanding_env['CFLAGS']  = "-Os -minline-all-stringops -m32 -march=pentium -mtune=core2 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
+freestanding_env['CFLAGS'] += " -ffunction-sections -fomit-frame-pointer -mregparm=3 "
+freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
+freestanding_env['LINK'] = "ld"
+freestanding_env['ASFLAGS'] = "-g stabs -O5 -f elf32"
+
+def CheckCommand(context, cmd):
+       context.Message('Checking for %s command... ' % cmd)
+       result = WhereIs(cmd)
+       context.Result(result is not None)
+       return result
+
+conf = Configure(freestanding_env, custom_tests = {'CheckCommand' : CheckCommand})
+
+if not conf.CheckCommand("yasm"):
+    if not conf.CheckCommand("nasm"):
+        print("Please install yasm or nasm!")
+        Exit(1)
+    else:
+        conf.env['AS'] = "nasm"
+else:
+    conf.env['AS'] = "yasm"
+
+if not (conf.CheckCHeader("stdint.h") and
+        conf.CheckCHeader("stdarg.h")):
+    print("Standard C headers are missing.")
+    Exit(1)
+
+freestanding_env = conf.Finish()
 
 fenv = freestanding_env.Clone()
 
@@ -47,7 +77,6 @@ AlwaysBuild(Command('version.inc', [], """git describe --dirty | sed 's/^\\(.*\\
 
 def DoInstall(prog):
     Depends(prog, 'morbo.ld')
-    prog = fenv.Strip(prog)
     Install('#tftp', prog)
 
 # Morbo
