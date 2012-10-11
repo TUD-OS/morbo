@@ -35,7 +35,7 @@ freestanding_env = conf.Finish()
 fenv = freestanding_env.Clone()
 
 fenv['CPPPATH'] = ["../include", "include/"]
-fenv['LINKFLAGS'] += " -T standalone/morbo.ld" 
+fenv['LINKFLAGS'] += " -T " + File('morbo.ld').srcnode().path
 fenv['LIBPATH'] = ['.']
 
 stand = fenv.StaticLibrary('stand',
