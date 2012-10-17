@@ -50,7 +50,7 @@ if not build_fw_scan:
        print('fw_scan will not be built.')
 
 if not build_tools:
-       printf('Firewire host tools will not be built.')
+       print('Firewire host tools will not be built.')
 
 fw_env = conf.Finish()
 
