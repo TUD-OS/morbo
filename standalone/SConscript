@@ -2,7 +2,7 @@
 
 freestanding_env = Environment()
 
-freestanding_env['CFLAGS']  = "-Os -minline-all-stringops -m32 -march=pentium -mtune=core2 -pipe -g -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
+freestanding_env['CFLAGS']  = "-Os -minline-all-stringops -m32 -march=pentium -mtune=core2 -pipe -std=gnu99 -ffreestanding -nostdlib -Wno-multichar -Wall"
 freestanding_env['CFLAGS'] += " -ffunction-sections -fomit-frame-pointer -mregparm=3 "
 freestanding_env['LINKFLAGS'] = "-m elf_i386 -gc-sections -N"
 freestanding_env['LINK'] = "ld"
