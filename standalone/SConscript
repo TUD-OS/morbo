@@ -73,7 +73,10 @@ tinf = fenv.StaticLibrary('tinf',
                             'crc32.c',
                             ])
 
-AlwaysBuild(Command('version.inc', [], """git describe --dirty | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
+# Execute git describe somewhere where our code is. This is useful,
+# when this SConscript is used by third-party scons build systems
+# directly.
+AlwaysBuild(Command('version.inc', ['include/version.h'], """( cd `dirname $SOURCE` && git describe --dirty || echo UNKNOWN ) | sed 's/^\\(.*\\)$/"\\1"/' > $TARGET"""))
 
 def DoInstall(prog):
     Depends(prog, 'morbo.ld')
