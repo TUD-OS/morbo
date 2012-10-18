@@ -18,14 +18,6 @@
 
 #pragma once
 
-#ifdef __SIZEOF_LONG_LONG__
-# if __SIZEOF_LONG_LONG__ == 8
-#  define ULLONG_MAX 0xFFFFFFFFFFFFFFFFULL
-# else
-#  error Weird compiler...
-# endif
-#else
-# error Could not detect size of long long.
-#endif
+#define ULLONG_MAX (~0ULL)
 
 /* EOF */
