@@ -73,7 +73,12 @@ main(uint32_t magic, struct mbi *mbi)
 
   if (iobase != 0) {
     printf("Patching BDA with I/O port 0x%x.\n", iobase);
-    *(uint16_t *)(0x400) = iobase;
+    uint16_t *com0_port      = (uint16_t *)(0x400);
+    uint16_t *equipment_word = (uint16_t *)(0x410);
+
+    *com0_port      = iobase;
+    *equipment_word = (*equipment_word & ~(0xF << 9)) | (1 << 9); /* One COM port available */
+
     serial_init();
     printf("Hello World.\n");
   } else {
