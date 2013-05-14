@@ -119,12 +119,6 @@ DoInstall(fenv.Program('farnsworth',
                          ],
                        LIBS=['stand', 'tinf']))
 
-# IRQ shadow
-
-DoInstall(fenv.Program('irqshadow',
-                       [ 'irqshadow.asm' ],
-                       LIBS=['stand']))
-
 # Performance tests
 
 DoInstall(fenv.Program('basicperf',
