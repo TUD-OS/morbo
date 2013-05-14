@@ -125,8 +125,4 @@ DoInstall(fenv.Program('basicperf',
                        [ 'basicperf.c' ],
                        LIBS=['stand']))
 
-DoInstall(fenv.Program('printtsc',
-                       [ 'printtsc.c' ],
-                       LIBS=['stand']))
-
 # EOF
