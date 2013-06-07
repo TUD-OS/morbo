@@ -6,5 +6,6 @@ peekpoke = fw_env.Program('fw_peek', ['fw_peek.cpp'])
 
 InstallAs('#bin/fw_peek', peekpoke)
 InstallAs('#bin/fw_poke', peekpoke)
+InstallAs('#bin/fw_screen', peekpoke)
     
 # EOF

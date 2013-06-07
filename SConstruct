@@ -36,6 +36,10 @@ if not conf.CheckPKG('libraw1394'):
 else:
        conf.env.ParseConfig('pkg-config --cflags --libs libraw1394')
 
+if not conf.CheckPKG('sdl'):
+       print('Could not find libsdl.')
+       build_tools = False
+
 if build_fw_scan and not conf.CheckCHeader('slang.h'):
        print('Could not find slang headers.')
        build_fw_scan = False
@@ -51,6 +55,8 @@ if not build_fw_scan:
 
 if not build_tools:
        print('Firewire host tools will not be built.')
+else:
+       conf.env.Append(LIBS = ['SDL'])
 
 fw_env = conf.Finish()
 
