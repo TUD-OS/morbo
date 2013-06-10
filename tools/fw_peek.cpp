@@ -1,8 +1,5 @@
 /* -*- Mode: C++ -*- */
 
-/* Linux */
-#include <SDL/SDL.h>
-
 #include <cstdio>
 #include <cstdlib>
 #include <cinttypes>
@@ -18,6 +15,10 @@
 #include <libraw1394/csr.h>
 
 #include <ohci-constants.h>
+
+#ifndef NO_FW_SCREEN
+# include <SDL/SDL.h>
+#endif	// NO_FW_SCREEN
 
 static char usage_peek[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address length\n";
 static char usage_poke[] = "Usage: %s [-p port] [-b blocksize] guid/nodeno address\n";
@@ -48,8 +49,10 @@ main(int argc, char **argv)
     mode = PEEK;
   } else if (strcmp(name, "fw_poke") == 0) {
     mode = POKE;
+#ifndef NO_FW_SCREEN
   } else if (strcmp(name, "fw_screen") == 0) {
     mode = SCREEN;
+#endif
   }
 
   if (mode == INVALID) {
@@ -132,6 +135,7 @@ main(int argc, char **argv)
 
   switch (mode) {
   case SCREEN:
+#ifndef NO_FW_SCREEN
     {
       if (SDL_Init(SDL_INIT_VIDEO) < 0) { perror("init sdl"); return -1; }
 
@@ -153,10 +157,13 @@ main(int argc, char **argv)
 
         SDL_Event event;
         if (SDL_PollEvent(&event))
-	        if (event.type == SDL_QUIT) exit(1);
+	  if (event.type == SDL_QUIT) exit(1);
       }
     }
     break;
+#else
+    abort();
+#endif	// NO_FW_SCREEN
   case PEEK:
     for (uint64_t cur = address; cur < address+length; cur += step) {
       size_t size = (cur + step > address+length) ? (address+length - cur) : step;

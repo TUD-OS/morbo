@@ -1,11 +1,29 @@
 # -*- Mode: Python -*-
 
+import morboutils
+
 Import('fw_env')
 
-peekpoke = fw_env.Program('fw_peek', ['fw_peek.cpp'])
+conf = Configure(fw_env.Clone(), custom_tests = { 'CheckPKG' : morboutils.CheckPKG })
+
+build_fw_screen = True
+
+if not conf.CheckPKG('sdl'):
+    conf.env.Append(CPPFLAGS = ['-DNO_FW_SCREEN'])
+    build_fw_screen = False
+else:
+    conf.env.ParseConfig('pkg-config --cflags --libs sdl')
+
+tools_env = conf.Finish()
+
+peekpoke = tools_env.Program('fw_peek', ['fw_peek.cpp'])
 
 InstallAs('#bin/fw_peek', peekpoke)
 InstallAs('#bin/fw_poke', peekpoke)
-InstallAs('#bin/fw_screen', peekpoke)
+
+if build_fw_screen:
+    InstallAs('#bin/fw_screen', peekpoke)
+else:
+    print('Could not find libsdl. fw_screen will not be built.')
     
 # EOF
