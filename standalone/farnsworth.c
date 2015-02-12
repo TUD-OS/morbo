@@ -50,5 +50,5 @@ main(uint32_t magic, struct mbi *mbi)
     printf("No memory map!\n");
   }
 
-  return start_module(mbi, false);
+  return start_module(mbi, false, PHYS_MAX_RELOCATE);
 }

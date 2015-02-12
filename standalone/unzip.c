@@ -23,5 +23,5 @@ main(uint32_t magic, struct mbi *mbi)
          "This should be the first boot chainloader, otherwise our simplistic memory\n"
          "management will probably fail.\n");
 
-  return start_module(mbi, true);
+  return start_module(mbi, true, PHYS_MAX_RELOCATE);
 }

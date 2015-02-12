@@ -58,14 +58,14 @@ gen_elf_segment(uint8_t **code, uintptr_t target, void *src, size_t len,
 }
 
 int
-start_module(struct mbi *mbi, bool uncompress)
+start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
 {
   if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
     printf("No module to start.\n");
     return -1;
   }
 
-  mbi_relocate_modules(mbi, uncompress);
+  mbi_relocate_modules(mbi, uncompress, phys_max);
 
   // skip module after loading
   struct module *m  = (struct module *) mbi->mods_addr;
