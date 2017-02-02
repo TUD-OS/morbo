@@ -25,6 +25,9 @@
 enum { PHYS_MAX_RELOCATE = 1ULL << 32 };
 
 int start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max);
+int start_module2(void *mbi2, bool uncompress, uint64_t phys_max);
+
+int load_elf(void const * mbi, uint32_t const binary, uint32_t const magic);
 
 /* Definitions taken from elf.h. Copyright follows: */
 /* This file defines standard ELF types, structures, and macros.

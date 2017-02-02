@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <util.h>
 #include <tinf.h>
-
+#include <elf.h>
 
 /** Find a sufficiently large block of free memory that is page aligned.
  */
@@ -203,5 +203,27 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
   }
 }
 
+int
+start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
+{
+  if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
+    printf("No module to start.\n");
+    return -1;
+  }
+
+  if (phys_max)
+    mbi_relocate_modules(mbi, uncompress, phys_max);
+
+  // skip module after loading
+  struct module *m  = (struct module *) mbi->mods_addr;
+  mbi->mods_addr += sizeof(struct module);
+  mbi->mods_count--;
+  mbi->cmdline = m->string;
+
+  // switch it on unconditionally, we assume that m->string is always initialized
+  mbi->flags |=  MBI_FLAG_CMDLINE;
+
+  return load_elf(mbi, m->mod_start, MBI_MAGIC);
+}
 
 /* EOF */

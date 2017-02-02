@@ -14,7 +14,6 @@
 
 #include <elf.h>
 #include <util.h>
-#include <mbi-tools.h>
 
 enum {
   EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
@@ -58,26 +57,10 @@ gen_elf_segment(uint8_t **code, uintptr_t target, void *src, size_t len,
 }
 
 int
-start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
+load_elf(void const * mbi, uint32_t const binary, uint32_t const magic)
 {
-  if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
-    printf("No module to start.\n");
-    return -1;
-  }
-
-  mbi_relocate_modules(mbi, uncompress, phys_max);
-
-  // skip module after loading
-  struct module *m  = (struct module *) mbi->mods_addr;
-  mbi->mods_addr += sizeof(struct module);
-  mbi->mods_count--;
-  mbi->cmdline = m->string;
-
-  // switch it on unconditionally, we assume that m->string is always initialized
-  mbi->flags |=  MBI_FLAG_CMDLINE;
-
   // check elf header
-  struct eh *elf = (struct eh *) m->mod_start;
+  struct eh *elf = (struct eh *) binary;
   assert(memcmp(elf->e_ident, ELFMAG, SELFMAG) == 0, "ELF header incorrect");
 
   uint8_t *code = (uint8_t *)0x7C00;
@@ -88,14 +71,14 @@ start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
     assert(sizeof(struct PH) <= elfc->e_phentsize, "e_phentsize too small"); \
                                                                         \
     for (unsigned i = 0; i < elfc->e_phnum; i++) {                      \
-      struct PH *ph = (struct PH *)(uintptr_t)(m->mod_start + elfc->e_phoff+ i*elfc->e_phentsize); \
+      struct PH *ph = (struct PH *)(uintptr_t)(binary + elfc->e_phoff+ i*elfc->e_phentsize); \
       if (ph->p_type != 1)                                              \
         continue;                                                       \
-      gen_elf_segment(&code, ph->p_paddr, (void *)(uintptr_t)(m->mod_start+ph->p_offset), ph->p_filesz, \
+      gen_elf_segment(&code, ph->p_paddr, (void *)(uintptr_t)(binary+ph->p_offset), ph->p_filesz, \
                       ph->p_memsz - ph->p_filesz);                      \
     }                                                                   \
                                                                         \
-    gen_mov(&code, EAX, 0x2BADB002);                                    \
+    gen_mov(&code, EAX, magic);                                         \
     gen_mov(&code, EDX, elfc->e_entry);                                 \
   }
 
