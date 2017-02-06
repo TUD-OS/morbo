@@ -73,4 +73,11 @@ struct mbi2_tag * mbi2_next(struct mbi2_tag *c)
   struct mbi2_tag * n = (struct mbi2_tag *)((unsigned long)c + offset);
   return (n->type == 0) ? 0 : n;
 }
+
+static inline
+uint32_t mbi2_size(void *multiboot)
+{
+  struct mbi2_tag * header = (struct mbi2_tag *)multiboot;
+  return header->size;
+}
 /* EOF */

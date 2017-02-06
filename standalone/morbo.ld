@@ -32,7 +32,7 @@ SECTIONS
     *(COMMON);
     *(.bss  .bss.*);
     . = ALIGN(0x80000);
-    _image_end = .;
+    _image_end = . - 1;
   }
 
   /DISCARD/ :

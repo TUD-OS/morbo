@@ -16,7 +16,7 @@
 #include <util.h>
 
 enum {
-  EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
+  EAX = 0, ECX, EDX, EBX, ESP, EBP, ESI, EDI
 };
 
 static void
