@@ -112,9 +112,10 @@ elf_phdr(struct ph64 const *ph, uint32_t const binary, uint8_t ** code)
 }
 
 int
-load_elf(void const * mbi, uint32_t const binary, uint32_t const magic)
+load_elf(void const * mbi, uint32_t const binary, uint32_t const magic,
+         uint32_t const jump_code)
 {
-  uint8_t *code = (uint8_t *)0x7C00;
+  uint8_t *code = (uint8_t *)jump_code;
 
   int error = for_each_phdr(binary, &code, elf_phdr);
   if (error)
@@ -142,7 +143,7 @@ load_elf(void const * mbi, uint32_t const binary, uint32_t const magic)
   }
 
   gen_jmp_edx(&code);
-  asm volatile  ("jmp *%%edx" :: "a" (0), "d" (0x7C00), "b" (mbi));
+  asm volatile  ("jmp *%%edx" :: "a" (0), "d" (jump_code), "b" (mbi));
 
   /* NOT REACHED */
   return 0;

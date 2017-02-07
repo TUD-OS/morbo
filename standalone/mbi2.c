@@ -147,8 +147,14 @@ start_module2(void *multiboot, bool uncompress, uint64_t phys_max)
     module->mod_start = MBI2_TAG_CMDLINE;
     module->mod_end   = size - sizeof(*i);
 
+    uint64_t jump_code = find_mbi2_memory(multiboot, 0x1000, true, mem_below);
+    if (!jump_code) {
+      printf("No address for jump code generation?\n");
+      return 1;
+    }
+
     /* load the next module */
-    load_elf(multiboot, binary, MBI2_MAGIC);
+    load_elf(multiboot, binary, MBI2_MAGIC, jump_code);
     break;
   }
   return 1;

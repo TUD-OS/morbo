@@ -115,7 +115,7 @@ gzip_info(struct module *mod, size_t *uncompressed)
  * uncompress all modules. If uncompress is set and relocation fails,
  * we consider this as fatal error (panic).
  */
-void
+static uint64_t
 mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
 {
   size_t size = 0;
@@ -158,7 +158,8 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
       if (mods[i].mod_end > reladdr) {
         if (reladdr == mods[i].mod_start) {
           printf("Modules seem to be relocated. Good.\n");
-          goto silent_fail;
+          assert(!need_inflate, "Couldn't relocate, which is required for decompressing.");
+          return reladdr;
         } else {
           printf("Modules might overlap.\nRelocate to %p, but module at %8x-%8x.\n",
                  reladdr, mods[i].mod_start, mods[i].mod_end-1);
@@ -194,13 +195,14 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
       mods[i].string = (uintptr_t)((char *)block + block_len + target_len);
     }
     printf("\n");
+    return reladdr;
+  }
 
-  } else {
   fail:
     printf("Cannot relocate.\n");
-  silent_fail:
     assert(!need_inflate, "Couldn't relocate, which is required for decompressing.");
-  }
+
+  return phys_max;
 }
 
 int
@@ -211,8 +213,18 @@ start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
     return -1;
   }
 
-  if (phys_max)
-    mbi_relocate_modules(mbi, uncompress, phys_max);
+  /**
+   * Relocate all modules to high memory. Must be below 4G since mod_start is
+   * solely 32bit value !
+   */
+  phys_max = (phys_max > 1ULL << 32) ? 1ULL << 32 : phys_max;
+
+  if (phys_max) {
+    phys_max = mbi_relocate_modules(mbi, uncompress, phys_max);
+    if (!phys_max)
+      return 1;
+  } else
+    phys_max = 1ULL << 32;
 
   // skip module after loading
   struct module *m  = (struct module *) mbi->mods_addr;
@@ -223,7 +235,14 @@ start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
   // switch it on unconditionally, we assume that m->string is always initialized
   mbi->flags |=  MBI_FLAG_CMDLINE;
 
-  return load_elf(mbi, m->mod_start, MBI_MAGIC);
+  void *jump_code = (void *)0x7c00;
+  size_t block_len;
+  if (!mbi_find_memory(mbi, 0x1000, &jump_code, &block_len, true, phys_max)) {
+    printf("No address for jump code generation?\n");
+    return 1;
+  }
+
+  return load_elf(mbi, m->mod_start, MBI_MAGIC, (uint32_t)jump_code);
 }
 
 /* EOF */

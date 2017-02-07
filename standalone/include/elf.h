@@ -29,7 +29,8 @@ struct ph64;
 int start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max);
 int start_module2(void *mbi2, bool uncompress, uint64_t phys_max);
 
-int load_elf(void const * mbi, uint32_t const binary, uint32_t const magic);
+int load_elf(void const * mbi, uint32_t const binary, uint32_t const magic,
+             uint32_t const code);
 
 int for_each_phdr(uint32_t const binary, uint8_t **, int (*fn)(struct ph64 const *, uint32_t const, uint8_t **));
 
