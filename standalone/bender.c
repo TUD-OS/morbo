@@ -34,6 +34,18 @@ parse_cmdline(const char *cmdline)
   }
 }
 
+static uint16_t apply_quirks(struct pci_device *pcid, uint16_t raw_iobase)
+{
+    uint32_t vendormodel = pci_cfg_read_uint32(pcid, 0);
+
+    if (vendormodel == 0x32531c00) {
+        printf("Found XR16850 chip. Adding 0xc0 to iobase offset.\n");
+        return raw_iobase + 0xc0;
+    }
+
+    return raw_iobase;
+}
+
 int
 main(uint32_t magic, struct mbi *mbi)
 {
@@ -70,6 +82,8 @@ main(uint32_t magic, struct mbi *mbi)
       break;
     }
   }
+
+  iobase = apply_quirks(&serial_ctrl, iobase);
 
   if (iobase != 0) {
     printf("Patching BDA with I/O port 0x%x.\n", iobase);
