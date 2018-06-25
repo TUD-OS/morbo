@@ -162,7 +162,7 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress)
 
     for (int i = mbi->mods_count - 1; i >= 0; i--) {
       size_t target_len = minfo[i].do_inflate ? minfo[i].inflated_size : minfo[i].modlen;
-      block_len -= (minfo[i].slen + 1 + target_len + 0xFFF) & ~0xFFF;
+      block_len -= (minfo[i].slen + target_len + 0xFFF) & ~0xFFF;
     
       if (minfo[i].do_inflate) {
         size_t uncompressed;
@@ -180,7 +180,7 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress)
       mods[i].mod_end = mods[i].mod_start + target_len;
 
       memcpy((char *)block + block_len + target_len, 
-             (void *)mods[i].string, minfo[i].slen + 1);
+             (void *)mods[i].string, minfo[i].slen);
       mods[i].string = (uintptr_t)((char *)block + block_len + target_len);
     }
     printf("\n");
