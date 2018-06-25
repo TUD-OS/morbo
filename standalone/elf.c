@@ -65,9 +65,7 @@ start_module(struct mbi *mbi, bool uncompress)
     return -1;
   }
 
-  if (uncompress || (mbi->mods_count > 1)) {
-    mbi_relocate_modules(mbi, uncompress);
-  }
+  mbi_relocate_modules(mbi, uncompress);
 
   // skip module after loading
   struct module *m  = (struct module *) mbi->mods_addr;
