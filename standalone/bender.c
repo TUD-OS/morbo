@@ -6,6 +6,7 @@
 #include <elf.h>
 #include <version.h>
 #include <serial.h>
+#include <bda.h>
 
 /* Configuration (set by command line parser) */
 static bool be_promisc = false;
@@ -85,20 +86,23 @@ main(uint32_t magic, struct mbi *mbi)
 
   iobase = apply_quirks(&serial_ctrl, iobase);
 
+  uint16_t *com0_port      = (uint16_t *)(get_bios_data_area());
+  uint16_t *equipment_word = &get_bios_data_area()->equipment;
+
   if (iobase != 0) {
     printf("Patching BDA with I/O port 0x%x.\n", iobase);
-    uint16_t *com0_port      = (uint16_t *)(0x400);
-    uint16_t *equipment_word = (uint16_t *)(0x410);
-
     *com0_port      = iobase;
     *equipment_word = (*equipment_word & ~(0xF << 9)) | (1 << 9); /* One COM port available */
-
-    serial_init();
-    printf("Hello World.\n");
   } else {
     printf("I/O ports for controller not found.\n");
   }
 
  boot_next:
+
+  if (serial_ports(get_bios_data_area()))
+    serial_init();
+
+  printf("Bender: Hello World.\n");
+
   return start_module(mbi, false);
 }
