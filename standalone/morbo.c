@@ -146,5 +146,5 @@ main(uint32_t magic, struct mbi *mbi)
   }
 
   /* Will not return if successful. */
-  return start_module(mbi, false);
+  return start_module(mbi, false, PHYS_MAX_RELOCATE);
 }

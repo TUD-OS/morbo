@@ -11,11 +11,15 @@
 bool
 mbi_find_memory(const struct mbi *multiboot_info, size_t len,
                 void **block_start_out, size_t *block_len_out,
-                bool highest)
+                bool highest, uint64_t const limit_to)
 {
   bool found         = false;
   size_t mmap_len    = multiboot_info->mmap_length;
   memory_map_t *mmap = (memory_map_t *)multiboot_info->mmap_addr;
+
+  /* be paranoid */
+  if (limit_to <= len)
+    return false;
 
   while ((uint32_t)mmap < multiboot_info->mmap_addr + mmap_len) {
     uint64_t block_len  = (uint64_t)mmap->length_high<<32 | mmap->length_low;
@@ -29,15 +33,21 @@ mbi_find_memory(const struct mbi *multiboot_info, size_t len,
     block_len  = block_len & ~0xFFF;
     block_addr = nblock_addr;
 
-    if ((mmap->type == MMAP_AVAILABLE) && ((block_addr >> 32) == 0ULL) &&
-        (block_len >= len)) {
+    if ((mmap->type == MMAP_AVAILABLE) && (block_len >= len) &&
+        (block_addr <= limit_to - len)) {
 
       if ((found == true) && ((uintptr_t)*block_start_out > block_addr))
         continue;
 
       found = true;
-      *block_start_out = (void *)(uintptr_t)block_addr;
-      *block_len_out   = (size_t)block_len;
+
+      /* take care that (block_addr+len) is below limit_to */
+      uint64_t top_addr = block_addr + block_len;
+      if (top_addr > limit_to)
+        top_addr = limit_to;
+
+      *block_start_out = (void *)(uintptr_t)top_addr - len;
+      *block_len_out   = (size_t)len;
 
       if (!highest) return true;
     }
@@ -106,7 +116,7 @@ gzip_info(struct module *mod, size_t *uncompressed)
  * we consider this as fatal error (panic).
  */
 void
-mbi_relocate_modules(struct mbi *mbi, bool uncompress)
+mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
 {
   size_t size = 0;
   bool need_inflate = false;
@@ -141,7 +151,7 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress)
   void *block;
   size_t block_len;
 
-  if (mbi_find_memory(mbi, size, &block, &block_len, true)) {
+  if (mbi_find_memory(mbi, size, &block, &block_len, true, phys_max)) {
     /* Check for overlap */
     uintptr_t reladdr = (uintptr_t)block + block_len - size;
     for (unsigned i = 0; i < mbi->mods_count; i++) {

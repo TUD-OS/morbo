@@ -10,6 +10,7 @@
 
 /* Configuration (set by command line parser) */
 static bool be_promisc = false;
+static uint64_t phys_max_relocate = 1ULL << 31; /* below 2G */
 
 void
 parse_cmdline(const char *cmdline)
@@ -32,6 +33,8 @@ parse_cmdline(const char *cmdline)
     if (strcmp(token, "promisc") == 0) {
       be_promisc = true;
     }
+    if (strcmp(token, "phys_max=256M") == 0)
+      phys_max_relocate = 256ULL * 1024 * 1024;
   }
 }
 
@@ -104,5 +107,5 @@ main(uint32_t magic, struct mbi *mbi)
 
   printf("Bender: Hello World.\n");
 
-  return start_module(mbi, false);
+  return start_module(mbi, false, phys_max_relocate);
 }
