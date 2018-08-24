@@ -1,6 +1,6 @@
         ;; Set stack and jump to _main
 
-        CPU P3
+        CPU 686
         
         EXTERN main, __exit
         GLOBAL _mbheader, _start, jmp_multiboot
