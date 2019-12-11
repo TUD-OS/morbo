@@ -1,3 +1,8 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+This project is discontinued. If you are interested in Bender, please
+continue to: https://github.com/blitz/bender
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 Morbo is a multiboot binary intended to be loaded from Grub or a
 similar multiboot-capable boot loader. It tries to find a
 OHCI-compatible Firewire controller on your PCI bus and enable
