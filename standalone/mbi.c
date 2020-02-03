@@ -1,14 +1,15 @@
 /* -*- Mode: C -*- */
 
 #include <mbi.h>
+#include <mbi-tools.h>
 #include <stddef.h>
 #include <util.h>
 #include <tinf.h>
-
+#include <elf.h>
 
 /** Find a sufficiently large block of free memory that is page aligned.
  */
-bool
+static bool
 mbi_find_memory(const struct mbi *multiboot_info, size_t len,
                 void **block_start_out, size_t *block_len_out,
                 bool highest, uint64_t const limit_to)
@@ -32,6 +33,9 @@ mbi_find_memory(const struct mbi *multiboot_info, size_t len,
     block_len -= (nblock_addr - block_addr);
     block_len  = block_len & ~0xFFF;
     block_addr = nblock_addr;
+
+    /* exclude bender image */
+    exclude_bender_binary(&block_addr, &block_len);
 
     if ((mmap->type == MMAP_AVAILABLE) && (block_len >= len) &&
         (block_addr <= limit_to - len)) {
@@ -115,7 +119,7 @@ gzip_info(struct module *mod, size_t *uncompressed)
  * uncompress all modules. If uncompress is set and relocation fails,
  * we consider this as fatal error (panic).
  */
-void
+static uint64_t
 mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
 {
   size_t size = 0;
@@ -158,7 +162,8 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
       if (mods[i].mod_end > reladdr) {
         if (reladdr == mods[i].mod_start) {
           printf("Modules seem to be relocated. Good.\n");
-          goto silent_fail;
+          assert(!need_inflate, "Couldn't relocate, which is required for decompressing.");
+          return reladdr;
         } else {
           printf("Modules might overlap.\nRelocate to %p, but module at %8x-%8x.\n",
                  reladdr, mods[i].mod_start, mods[i].mod_end-1);
@@ -194,14 +199,110 @@ mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max)
       mods[i].string = (uintptr_t)((char *)block + block_len + target_len);
     }
     printf("\n");
+    return reladdr;
+  }
 
-  } else {
   fail:
     printf("Cannot relocate.\n");
-  silent_fail:
     assert(!need_inflate, "Couldn't relocate, which is required for decompressing.");
-  }
+
+  return phys_max;
 }
 
+static
+int check_reloc (struct ph64 const * p, uint32_t const binary, uint8_t ** var)
+{
+  if (p->p_type != ELF_PT_LOAD)
+    return 0;
+
+  struct mbi *mbi = (struct mbi *)var;
+  struct module *modules = (struct module *)mbi->mods_addr;
+
+  for (unsigned i = 0; i < mbi->mods_count; i++) {
+    uint32_t cmdline_len = modules[i].string ? strlen((char *)modules[i].string) : 0;
+
+    if (overlap(modules[i].mod_start, modules[i].mod_end, p) ||
+        (modules[i].string && overlap(modules[i].string, modules[i].string + cmdline_len, p))) {
+      printf("phdr %llx+%llx overlaps with module %lx-%lx %x+%x'%s' \n",
+             p->p_paddr, p->p_memsz, modules[i].mod_start, modules[i].mod_end,
+             modules[i].string, cmdline_len, modules[i].string);
+      return 1;
+    }
+  }
+
+  bool in_ram        = false;
+  size_t mmap_len    = mbi->mmap_length;
+  memory_map_t *mmap = (memory_map_t *)mbi->mmap_addr;
+  while ((uint32_t)mmap < mbi->mmap_addr + mmap_len) {
+    uint64_t block_len  = (uint64_t)mmap->length_high<<32 | mmap->length_low;
+    uint64_t block_addr = (uint64_t)mmap->base_addr_high<<32 | mmap->base_addr_low;
+
+    if (mmap->type == MMAP_AVAILABLE) {
+      if (block_addr <= p->p_paddr && p->p_paddr + p->p_memsz < block_addr + block_len)
+        in_ram = true;
+    } else {
+      if (in_range(p, block_addr, block_len)) {
+        printf("Reserved memory %llx+%llx type=%u overlaps with phdr %llx+%llx\n",
+               block_addr, block_len, mmap->type, p->p_paddr, p->p_memsz);
+        return 1;
+      }
+    }
+
+    /* Skip to next entry. */
+    mmap = (memory_map_t *)(mmap->size + (uint32_t)mmap + sizeof(mmap->size));
+  }
+
+  /* check that p does not overlap with bender binary */
+  if (overlap_bender_binary(p))
+    return 1;
+
+  return !in_ram;
+}
+
+int
+start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
+{
+  if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
+    printf("No module to start.\n");
+    return -1;
+  }
+
+  /**
+   * Relocate all modules to high memory. Must be below 4G since mod_start is
+   * solely 32bit value !
+   */
+  phys_max = (phys_max > 1ULL << 32) ? 1ULL << 32 : phys_max;
+
+  if (phys_max) {
+    phys_max = mbi_relocate_modules(mbi, uncompress, phys_max);
+    if (!phys_max)
+      return 1;
+  } else
+    phys_max = 1ULL << 32;
+
+  /* sanity check that next module will be unpacked to unused memory */
+  struct module *modules = (struct module *)mbi->mods_addr;
+  int error = for_each_phdr(modules[0].mod_start, (uint8_t **)mbi, check_reloc);
+  if (error)
+    return error;
+
+  // skip module after loading
+  struct module *m  = (struct module *) mbi->mods_addr;
+  mbi->mods_addr += sizeof(struct module);
+  mbi->mods_count--;
+  mbi->cmdline = m->string;
+
+  // switch it on unconditionally, we assume that m->string is always initialized
+  mbi->flags |=  MBI_FLAG_CMDLINE;
+
+  void *jump_code = (void *)0x7c00;
+  size_t block_len;
+  if (!mbi_find_memory(mbi, 0x1000, &jump_code, &block_len, true, phys_max)) {
+    printf("No address for jump code generation?\n");
+    return 1;
+  }
+
+  return load_elf(mbi, m->mod_start, MBI_MAGIC, (uint32_t)jump_code);
+}
 
 /* EOF */

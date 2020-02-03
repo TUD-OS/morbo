@@ -22,14 +22,33 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <mbi.h>
+#include <elf.h>
 
-bool mbi_find_memory(const struct mbi *multiboot_info, size_t len,
-                     void **block_start, size_t *block_len,
-                     bool highest);
+void exclude_region(uint64_t *block_addr, uint64_t *block_len,
+                    uintptr_t const image_start, uintptr_t const image_end);
+void exclude_bender_binary(uint64_t *block_addr, uint64_t *block_len);
+bool overlap_bender_binary(struct ph64 const * p);
+
+static inline bool overlap(uint64_t mod_start, uint64_t mod_end,
+                           struct ph64 const * p)
+{
+  if (p->p_memsz == 0)
+    return false;
+
+  uint64_t const p_first = p->p_paddr;
+  uint64_t const p_last  = p->p_paddr + p->p_memsz - 1;
+
+  return !((mod_end < p_first) || (p_last < mod_start));
+}
+
+static inline bool in_range(struct ph64 const * p, uint64_t start, uint64_t size)
+{
+  if (size == 0)
+    return false;
+
+  return overlap(start, start + size - 1, p);
+}
 
 void *mbi_alloc_protected_memory(struct mbi *multiboot_info, size_t len, unsigned align);
-
-void mbi_relocate_modules(struct mbi *mbi, bool uncompress, uint64_t phys_max);
-
 
 /* EOF */

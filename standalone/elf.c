@@ -14,10 +14,9 @@
 
 #include <elf.h>
 #include <util.h>
-#include <mbi-tools.h>
 
 enum {
-  EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
+  EAX = 0, ECX, EDX, EBX, ESP, EBP, ESI, EDI
 };
 
 static void
@@ -57,61 +56,94 @@ gen_elf_segment(uint8_t **code, uintptr_t target, void *src, size_t len,
   byte_out(code, 0xAA);         /* STOSB */
 }
 
-int
-start_module(struct mbi *mbi, bool uncompress, uint64_t phys_max)
+int for_each_phdr(uint32_t const binary, uint8_t ** var,
+                  int (*fn)(struct ph64 const *, uint32_t const, uint8_t **))
 {
-  if (((mbi->flags & MBI_FLAG_MODS) == 0) || (mbi->mods_count == 0)) {
-    printf("No module to start.\n");
-    return -1;
-  }
-
-  mbi_relocate_modules(mbi, uncompress, phys_max);
-
-  // skip module after loading
-  struct module *m  = (struct module *) mbi->mods_addr;
-  mbi->mods_addr += sizeof(struct module);
-  mbi->mods_count--;
-  mbi->cmdline = m->string;
-
-  // switch it on unconditionally, we assume that m->string is always initialized
-  mbi->flags |=  MBI_FLAG_CMDLINE;
-
   // check elf header
-  struct eh *elf = (struct eh *) m->mod_start;
+  struct eh *elf = (struct eh *) binary;
   assert(memcmp(elf->e_ident, ELFMAG, SELFMAG) == 0, "ELF header incorrect");
 
-  uint8_t *code = (uint8_t *)0x7C00;
-
-#define LOADER(EH, PH) {                                                \
-    struct EH *elfc = (struct EH *)elf;                                               \
+#define ITER(EH, PH) {                                                  \
+    struct EH *elfc = (struct EH *)elf;                                 \
     assert(elfc->e_type==2 && ((elfc->e_machine == EM_386) || (elfc->e_machine == EM_X86_64)) && elfc->e_version==1, "ELF type incorrect"); \
     assert(sizeof(struct PH) <= elfc->e_phentsize, "e_phentsize too small"); \
                                                                         \
     for (unsigned i = 0; i < elfc->e_phnum; i++) {                      \
-      struct PH *ph = (struct PH *)(uintptr_t)(m->mod_start + elfc->e_phoff+ i*elfc->e_phentsize); \
-      if (ph->p_type != 1)                                              \
-        continue;                                                       \
-      gen_elf_segment(&code, ph->p_paddr, (void *)(uintptr_t)(m->mod_start+ph->p_offset), ph->p_filesz, \
-                      ph->p_memsz - ph->p_filesz);                      \
-    }                                                                   \
-                                                                        \
-    gen_mov(&code, EAX, 0x2BADB002);                                    \
-    gen_mov(&code, EDX, elfc->e_entry);                                 \
+      struct PH *ph = (struct PH *)(uintptr_t)(binary + elfc->e_phoff+ i*elfc->e_phentsize); \
+      struct ph64 const p_tmp = {      \
+        .p_type   = ph->p_type,        \
+        .p_flags  = ph->p_flags,       \
+        .p_offset = ph->p_offset,      \
+        .p_vaddr  = ph->p_vaddr,       \
+        .p_paddr  = ph->p_paddr,       \
+        .p_filesz = ph->p_filesz,      \
+        .p_memsz  = ph->p_memsz,       \
+        .p_align  = ph->p_align        \
+      };                               \
+      int e = fn(&p_tmp, binary, var); \
+      if (e)                           \
+        return e;                      \
+    }                                  \
   }
 
   switch (elf->e_ident[EI_CLASS]) {
   case ELFCLASS32:
-    LOADER(eh, ph);
+    ITER(eh, ph);
     break;
   case ELFCLASS64:
-    LOADER(eh64, ph64);
+    ITER(eh64, ph64);
     break;
   default:
     assert(false, "Invalid ELF class");
   }
+  return 0;
+}
+
+static int
+elf_phdr(struct ph64 const *ph, uint32_t const binary, uint8_t ** code)
+{
+  if (ph->p_type != ELF_PT_LOAD)
+    return 0;
+
+  gen_elf_segment(code, ph->p_paddr, (void *)(uintptr_t)(binary+ph->p_offset),
+                  ph->p_filesz, ph->p_memsz - ph->p_filesz);
+
+  return 0;
+}
+
+int
+load_elf(void const * mbi, uint32_t const binary, uint32_t const magic,
+         uint32_t const jump_code)
+{
+  uint8_t *code = (uint8_t *)jump_code;
+
+  int error = for_each_phdr(binary, &code, elf_phdr);
+  if (error)
+    return error;
+
+  gen_mov(&code, EAX, magic);
+
+  struct eh *elf = (struct eh *) binary;
+  switch (elf->e_ident[EI_CLASS]) {
+  case ELFCLASS32:
+  {
+    struct eh *elfc = (struct eh *)elf;
+    gen_mov(&code, EDX, elfc->e_entry);
+    break;
+  }
+  case ELFCLASS64:
+  {
+    struct eh64 *elfc = (struct eh64 *)elf;
+    gen_mov(&code, EDX, elfc->e_entry);
+    break;
+  }
+  default:
+    assert(false, "Invalid ELF class");
+    return 1;
+  }
 
   gen_jmp_edx(&code);
-  asm volatile  ("jmp *%%edx" :: "a" (0), "d" (0x7C00), "b" (mbi));
+  asm volatile  ("jmp *%%edx" :: "a" (0), "d" (jump_code), "b" (mbi));
 
   /* NOT REACHED */
   return 0;
